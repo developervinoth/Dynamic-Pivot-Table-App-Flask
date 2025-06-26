@@ -1,0 +1,2011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Pivot System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            background: white;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 12px;
+            opacity: 0.8;
+            font-weight: 300;
+        }
+
+        .controls {
+            background: #ecf0f1;
+            padding: 15px 20px;
+            border-bottom: 1px solid #bdc3c7;
+        }
+
+        .pivot-builder {
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #d5dbdb;
+            overflow: hidden;
+        }
+
+        .builder-header {
+            background: #34495e;
+            color: white;
+            padding: 12px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-builder {
+            background: #3498db;
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .builder-content {
+            display: none;
+            padding: 15px;
+        }
+
+        .builder-content.show {
+            display: block;
+        }
+
+        .pivot-designer {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 20px;
+            min-height: 300px;
+        }
+
+        /* Field List */
+        .field-list {
+            background: #f8f9fa;
+            border: 1px solid #d5dbdb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .field-list-header {
+            background: #ecf0f1;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 1px solid #d5dbdb;
+        }
+
+        .field-list-content {
+            padding: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .field-item {
+            background: white;
+            border: 1px solid #d5dbdb;
+            border-radius: 3px;
+            padding: 6px 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            cursor: grab;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .field-item:hover {
+            background: #e8f4fd;
+            border-color: #3498db;
+            transform: translateY(-1px);
+        }
+
+        .field-item:active {
+            cursor: grabbing;
+        }
+
+        .field-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .field-type {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            font-size: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .field-type.text {
+            background: #95a5a6;
+        }
+
+        .field-type.number {
+            background: #3498db;
+        }
+
+        .field-type.date {
+            background: #e67e22;
+        }
+
+        /* Drop Zones */
+        .drop-zones {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .drop-zone {
+            background: #f8f9fa;
+            border: 2px dashed #d5dbdb;
+            border-radius: 4px;
+            min-height: 120px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #3498db;
+            background: #e8f4fd;
+        }
+
+        .drop-zone-header {
+            background: #ecf0f1;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #2c3e50;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #d5dbdb;
+        }
+
+        .drop-zone-content {
+            padding: 10px;
+            min-height: 80px;
+        }
+
+        .drop-zone-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #95a5a6;
+            font-size: 10px;
+            text-align: center;
+            pointer-events: none;
+            font-style: italic;
+        }
+
+        .dropped-field {
+            background: white;
+            border: 1px solid #3498db;
+            border-radius: 3px;
+            padding: 4px 8px;
+            margin-bottom: 4px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            cursor: grab;
+        }
+
+        .dropped-field:hover {
+            background: #e8f4fd;
+        }
+
+        .dropped-field .remove-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 2px;
+            width: 16px;
+            height: 16px;
+            font-size: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dropped-field .remove-btn:hover {
+            background: #c0392b;
+        }
+
+        /* Builder Actions */
+        .builder-actions {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ecf0f1;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-apply {
+            background: #27ae60;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .btn-apply:hover {
+            background: #219a52;
+        }
+
+        .btn-reset {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .btn-reset:hover {
+            background: #c0392b;
+        }
+
+        /* Excel-style Filter Popup */
+        .excel-filter-container {
+            background: white;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            width: 280px;
+            max-height: 400px;
+            font-family: 'Montserrat', sans-serif;
+            z-index: 1000;
+        }
+
+        .excel-filter-header {
+            background: #34495e;
+            color: white;
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .filter-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .excel-filter-content {
+            padding: 0;
+        }
+
+        .filter-search {
+            padding: 10px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .filter-search input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .filter-options {
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .filter-option {
+            display: block;
+            padding: 6px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+            transition: background-color 0.2s ease;
+        }
+
+        .filter-option:hover {
+            background: #f8f9fa;
+        }
+
+        .filter-option input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .filter-values {
+            border-top: 1px solid #ecf0f1;
+        }
+
+        .filter-actions {
+            padding: 10px;
+            border-top: 1px solid #ecf0f1;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .filter-actions .btn {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        /* Responsive Design for Builder */
+        @media (max-width: 768px) {
+            .pivot-designer {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .drop-zones {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, 1fr);
+            }
+
+            .excel-filter-container {
+                width: 90vw;
+                max-width: 280px;
+                left: 5vw !important;
+            }
+        }
+
+        .main-content {
+            padding: 0;
+        }
+
+        .section-header {
+            background: #ecf0f1;
+            padding: 10px 20px;
+            border-bottom: 1px solid #bdc3c7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .search-input {
+            padding: 6px 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 12px;
+            width: 200px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        /* Pagination */
+        .pagination-container {
+            background: #ecf0f1;
+            padding: 8px 20px;
+            border-bottom: 1px solid #bdc3c7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pagination-info {
+            font-size: 12px;
+            color: #34495e;
+            font-weight: 500;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .pagination-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+            min-width: 30px;
+        }
+
+        .pagination-select {
+            padding: 4px 6px;
+            font-size: 11px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            margin: 0 8px;
+        }
+
+        /* Dimension Table Container */
+        .dimension-container {
+            background: white;
+            overflow-x: auto;
+        }
+
+        /* Column Filters */
+        .column-filters {
+            background: #f8f9fa;
+            padding: 8px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: none;
+        }
+
+        .column-filters.show {
+            display: block;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .filter-input {
+            padding: 4px 6px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* Tables */
+        .dimension-table, .tree-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .dimension-table th, .tree-table th {
+            background: #34495e;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            border-right: 1px solid #2c3e50;
+            white-space: nowrap;
+        }
+
+        .dimension-table th:hover, .tree-table th:hover {
+            background: #2c3e50;
+        }
+
+        .dimension-table th .sort-icon, .tree-table th .sort-icon {
+            float: right;
+            margin-left: 4px;
+            opacity: 0.7;
+        }
+
+        .dimension-table th.sort-asc .sort-icon::after, .tree-table th.sort-asc .sort-icon::after {
+            content: ' ↑';
+            color: #3498db;
+        }
+
+        .dimension-table th.sort-desc .sort-icon::after, .tree-table th.sort-desc .sort-icon::after {
+            content: ' ↓';
+            color: #3498db;
+        }
+
+        .dimension-table td, .tree-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #ecf0f1;
+            border-right: 1px solid #ecf0f1;
+            background: white;
+            white-space: nowrap;
+        }
+
+        .dimension-table tr:hover td {
+            background: #e8f4fd;
+            cursor: pointer;
+        }
+
+        .tree-table tr:hover td {
+            background: #f8f9fa;
+        }
+
+        .dimension-row.expanded td {
+            background: #3498db;
+            color: white;
+            font-weight: 500;
+        }
+
+        .expand-indicator {
+            display: inline-block;
+            margin-right: 6px;
+            transition: transform 0.2s ease;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .dimension-row.expanded .expand-indicator {
+            transform: rotate(90deg);
+        }
+
+        /* Pivot Container */
+        .pivot-container {
+            background: #f8f9fa;
+            border-left: 3px solid #3498db;
+            display: none;
+        }
+
+        .pivot-container.show {
+            display: block;
+        }
+
+        .pivot-header {
+            background: #ecf0f1;
+            padding: 8px 20px;
+            border-bottom: 1px solid #bdc3c7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pivot-info {
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 12px;
+        }
+
+        .pivot-search {
+            padding: 4px 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 11px;
+            width: 150px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .pivot-content {
+            padding: 0;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Loading Spinner */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #ecf0f1;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #3498db;
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+
+        .loading-timer {
+            color: #7f8c8d;
+            font-size: 11px;
+        }
+
+        /* Tree Table Specific */
+        .expand-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 4px;
+            margin-right: 4px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #3498db;
+        }
+
+        .expand-btn:hover {
+            background-color: #e3f2fd;
+        }
+
+        .expand-btn.expanded {
+            color: #e74c3c;
+        }
+
+        .level-0 { background: #fff; font-weight: 500; }
+        .level-1 { background: #fafbfc; padding-left: 20px; }
+        .level-2 { background: #f8f9fa; padding-left: 40px; }
+
+        .total-row {
+            background: #27ae60;
+            color: white;
+            font-weight: 600;
+        }
+
+        .value {
+            text-align: right;
+            font-weight: 500;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .value.positive {
+            color: #27ae60;
+        }
+
+        .value.null {
+            color: #95a5a6;
+            font-style: italic;
+        }
+
+        /* Error Styles */
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            border: 1px solid #fecaca;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 10px 20px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        /* No Data */
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .section-header {
+                flex-direction: column;
+                gap: 8px;
+                align-items: stretch;
+            }
+            
+            .search-container {
+                justify-content: space-between;
+            }
+            
+            .search-input, .pivot-search {
+                width: 100%;
+                max-width: 200px;
+            }
+            
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pagination-container {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+
+        /* Professional scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #ecf0f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #bdc3c7;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Dynamic Pivot System</h1>
+            <p>Professional data analysis with expandable pivot tables</p>
+        </div>
+
+        <div class="controls">
+            <div class="pivot-builder">
+                <div class="builder-header">
+                    <span>Pivot Table Builder</span>
+                    <button class="toggle-builder" onclick="pivotSystem.toggleBuilder()">Configure</button>
+                </div>
+                <div class="builder-content" id="builderContent">
+                    <div class="pivot-designer">
+                        <!-- Field List -->
+                        <div class="field-list">
+                            <div class="field-list-header">Available Fields</div>
+                            <div class="field-list-content" id="fieldList">
+                                <!-- Fields will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Drop Zones -->
+                        <div class="drop-zones">
+                            <div class="drop-zone" id="columnsZone" ondrop="pivotSystem.handleDrop(event, 'columns')" ondragover="pivotSystem.handleDragOver(event)" ondragleave="pivotSystem.handleDragLeave(event)">
+                                <div class="drop-zone-header">Columns</div>
+                                <div class="drop-zone-content" id="columnsContent">
+                                    <div class="drop-zone-placeholder">Drag fields here for pivot columns</div>
+                                </div>
+                            </div>
+
+                            <div class="drop-zone" id="rowsZone" ondrop="pivotSystem.handleDrop(event, 'rows')" ondragover="pivotSystem.handleDragOver(event)" ondragleave="pivotSystem.handleDragLeave(event)">
+                                <div class="drop-zone-header">Rows</div>
+                                <div class="drop-zone-content" id="rowsContent">
+                                    <div class="drop-zone-placeholder">Drag fields here for pivot rows</div>
+                                </div>
+                            </div>
+
+                            <div class="drop-zone" id="valuesZone" ondrop="pivotSystem.handleDrop(event, 'values')" ondragover="pivotSystem.handleDragOver(event)" ondragleave="pivotSystem.handleDragLeave(event)">
+                                <div class="drop-zone-header">Values</div>
+                                <div class="drop-zone-content" id="valuesContent">
+                                    <div class="drop-zone-placeholder">Drag numeric fields here for aggregation</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="builder-actions">
+                        <button class="btn-reset" onclick="pivotSystem.resetBuilder()">Reset</button>
+                        <button class="btn-apply" onclick="pivotSystem.applyPivotConfig()">Apply Configuration</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="section-header">
+                <div class="section-title">Dimension Table</div>
+                <div class="search-container">
+                    <input type="text" id="dimensionSearch" class="search-input" placeholder="Search dimensions...">
+                    <button class="btn" onclick="pivotSystem.toggleDimensionFilters()">Filters</button>
+                    <button class="btn btn-secondary" onclick="pivotSystem.clearDimensionFilters()">Clear</button>
+                </div>
+            </div>
+
+            <div class="pagination-container">
+                <div class="pagination-info" id="paginationInfo">
+                    Showing 0 - 0 of 0 records
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('first')" id="firstBtn">First</button>
+                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('prev')" id="prevBtn">Prev</button>
+                    <select class="pagination-select" id="pageSelect" onchange="pivotSystem.goToPage(this.value)"></select>
+                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('next')" id="nextBtn">Next</button>
+                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('last')" id="lastBtn">Last</button>
+                    <select class="pagination-select" id="pageSizeSelect" onchange="pivotSystem.changePageSize(this.value)">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="dimension-container">
+                <div class="column-filters" id="dimensionFilters">
+                    <div class="filter-grid" id="dimensionFilterGrid"></div>
+                </div>
+                <div id="dimensionTableContainer">
+                    <div class="loading-container">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Loading dimension data...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function ProfessionalPivotSystem() {
+            this.dimensionData = [];
+            this.filteredData = [];
+            this.expandedRows = new Set();
+            this.pivotData = {};
+            this.hierarchyLevels = [];
+            this.columns = [];
+            this.loadingTimers = {};
+            
+            // Pagination
+            this.currentPage = 1;
+            this.pageSize = 50;
+            this.totalPages = 0;
+            this.totalRecords = 0;
+            
+            // Sorting and filtering
+            this.dimensionSort = { column: null, direction: 'asc' };
+            this.pivotSorts = {};
+            this.dimensionFilters = {};
+            this.dimensionSearchTerm = '';
+            this.pivotSearchTerms = {};
+            this.expandedTreeNodes = {};
+            
+            // Pivot Builder State
+            this.availableFields = [];
+            this.pivotConfig = {
+                columns: [],
+                rows: [],
+                values: []
+            };
+            this.builderVisible = false;
+            
+            this.initializeEventListeners();
+            this.loadDimensionData();
+        }
+
+        ProfessionalPivotSystem.prototype.initializeEventListeners = function() {
+            var self = this;
+            document.getElementById('dimensionSearch').addEventListener('input', function(e) {
+                self.dimensionSearchTerm = e.target.value.toLowerCase();
+                self.applyFiltersAndPagination();
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.loadDimensionData = function() {
+            var self = this;
+            fetch('/api/dimensions')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    self.dimensionData = data;
+                    self.createDimensionFilters();
+                    self.applyFiltersAndPagination();
+                    self.loadPivotFields();
+                })
+                .catch(function(error) {
+                    document.getElementById('dimensionTableContainer').innerHTML = 
+                        '<div class="error">Error loading dimension data: ' + error.message + '</div>';
+                });
+        };
+
+        ProfessionalPivotSystem.prototype.loadPivotFields = function() {
+            var self = this;
+            if (!this.dimensionData.columns || this.dimensionData.columns.length === 0) return;
+            
+            var filterColumn = this.dimensionData.columns[0];
+            
+            fetch('/api/pivot-columns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filter_column: filterColumn })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (!data.error) {
+                    self.availableFields = [];
+                    
+                    // Add categorical fields
+                    data.categorical_columns.forEach(function(col) {
+                        self.availableFields.push({
+                            name: col,
+                            type: 'text',
+                            isNumeric: false
+                        });
+                    });
+                    
+                    // Add numeric fields
+                    data.numeric_columns.forEach(function(col) {
+                        self.availableFields.push({
+                            name: col,
+                            type: 'number',
+                            isNumeric: true
+                        });
+                    });
+                    
+                    self.renderFieldList();
+                    self.setDefaultConfiguration();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error loading pivot fields:', error);
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.renderFieldList = function() {
+            var self = this;
+            var fieldList = document.getElementById('fieldList');
+            fieldList.innerHTML = '';
+            
+            this.availableFields.forEach(function(field) {
+                var fieldElement = document.createElement('div');
+                fieldElement.className = 'field-item';
+                fieldElement.draggable = true;
+                fieldElement.dataset.fieldName = field.name;
+                fieldElement.dataset.fieldType = field.type;
+                fieldElement.dataset.isNumeric = field.isNumeric;
+                
+                fieldElement.innerHTML = 
+                    '<div class="field-type ' + field.type + '">' + (field.type === 'number' ? '#' : 'T') + '</div>' +
+                    '<span>' + field.name + '</span>';
+                
+                fieldElement.addEventListener('dragstart', function(e) {
+                    self.handleDragStart(e);
+                });
+                fieldElement.addEventListener('dragend', function(e) {
+                    self.handleDragEnd(e);
+                });
+                
+                fieldList.appendChild(fieldElement);
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.setDefaultConfiguration = function() {
+            var categoricalFields = this.availableFields.filter(function(f) { return !f.isNumeric; });
+            var numericFields = this.availableFields.filter(function(f) { return f.isNumeric; });
+            
+            if (categoricalFields.length > 0) {
+                this.pivotConfig.rows = [categoricalFields[0].name];
+                if (categoricalFields.length > 1) {
+                    this.pivotConfig.columns = [categoricalFields[1].name];
+                }
+            }
+            
+            if (numericFields.length > 0) {
+                this.pivotConfig.values = [numericFields[0].name];
+            }
+            
+            this.renderDropZones();
+        };
+
+        ProfessionalPivotSystem.prototype.toggleBuilder = function() {
+            this.builderVisible = !this.builderVisible;
+            var content = document.getElementById('builderContent');
+            if (content) {
+                if (this.builderVisible) {
+                    content.classList.add('show');
+                } else {
+                    content.classList.remove('show');
+                }
+            }
+        };
+
+        ProfessionalPivotSystem.prototype.handleDragStart = function(e) {
+            e.dataTransfer.setData('text/plain', e.target.dataset.fieldName);
+            e.dataTransfer.setData('field-type', e.target.dataset.fieldType);
+            e.dataTransfer.setData('is-numeric', e.target.dataset.isNumeric);
+            e.target.classList.add('dragging');
+        };
+
+        ProfessionalPivotSystem.prototype.handleDragEnd = function(e) {
+            e.target.classList.remove('dragging');
+        };
+
+        ProfessionalPivotSystem.prototype.handleDragOver = function(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        };
+
+        ProfessionalPivotSystem.prototype.handleDrop = function(e, zone) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            var fieldName = e.dataTransfer.getData('text/plain');
+            var fieldType = e.dataTransfer.getData('field-type');
+            var isNumeric = e.dataTransfer.getData('is-numeric') === 'true';
+            
+            // Validation
+            if (zone === 'values' && !isNumeric) {
+                alert('Only numeric fields can be used in Values area');
+                return;
+            }
+            
+            // Remove from other zones first
+            this.removeFieldFromAllZones(fieldName);
+            
+            // Add to target zone
+            if (this.pivotConfig[zone].indexOf(fieldName) === -1) {
+                this.pivotConfig[zone].push(fieldName);
+            }
+            
+            this.renderDropZones();
+        };
+
+        ProfessionalPivotSystem.prototype.removeFieldFromAllZones = function(fieldName) {
+            var self = this;
+            Object.keys(this.pivotConfig).forEach(function(zone) {
+                var index = self.pivotConfig[zone].indexOf(fieldName);
+                if (index > -1) {
+                    self.pivotConfig[zone].splice(index, 1);
+                }
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.renderDropZones = function() {
+            var self = this;
+            Object.keys(this.pivotConfig).forEach(function(zone) {
+                var content = document.getElementById(zone + 'Content');
+                if (!content) return;
+                
+                var fields = self.pivotConfig[zone];
+                
+                if (fields.length === 0) {
+                    var placeholders = {
+                        columns: 'Drag fields here for pivot columns',
+                        rows: 'Drag fields here for pivot rows',
+                        values: 'Drag numeric fields here for aggregation'
+                    };
+                    content.innerHTML = '<div class="drop-zone-placeholder">' + placeholders[zone] + '</div>';
+                } else {
+                    content.innerHTML = fields.map(function(fieldName) {
+                        var field = self.availableFields.find(function(f) { return f.name === fieldName; });
+                        
+                        return '<div class="dropped-field" draggable="true" data-field-name="' + fieldName + '" data-field-type="' + (field ? field.type : 'text') + '" data-is-numeric="' + (field ? field.isNumeric : false) + '">' +
+                            '<div style="display: flex; align-items: center; gap: 6px;">' +
+                                '<div class="field-type ' + (field ? field.type : 'text') + '">' + (field && field.type === 'number' ? '#' : 'T') + '</div>' +
+                                '<span>' + fieldName + '</span>' +
+                            '</div>' +
+                            '<button class="remove-btn" onclick="pivotSystem.removeField(\'' + zone + '\', \'' + fieldName + '\')">×</button>' +
+                        '</div>';
+                    }).join('');
+                    
+                    // Add drag listeners to dropped fields
+                    content.querySelectorAll('.dropped-field').forEach(function(element) {
+                        element.addEventListener('dragstart', function(e) {
+                            self.handleDragStart(e);
+                        });
+                        element.addEventListener('dragend', function(e) {
+                            self.handleDragEnd(e);
+                        });
+                    });
+                }
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.showExcelFilter = function(fieldName) {
+            var self = this;
+            
+            // Get unique values for the filter column from fact table
+            fetch('/api/filter-values', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filter_column: fieldName
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (!data.error) {
+                    self.createExcelStyleFilters(fieldName, data.filter_values);
+                } else {
+                    alert('Error loading filter values: ' + data.error);
+                }
+            })
+            .catch(function(error) {
+                console.error('Error loading filter values:', error);
+                alert('Error loading filter values');
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.createExcelStyleFilters = function(fieldName, filterValues) {
+            var self = this;
+            
+            // Close existing filter if any
+            this.closeExcelFilter();
+            
+            // Create filter container
+            var filterContainer = document.createElement('div');
+            filterContainer.className = 'excel-filter-container';
+            filterContainer.innerHTML = 
+                '<div class="excel-filter-header">' +
+                    '<strong>Filter: ' + fieldName + '</strong>' +
+                    '<button class="filter-close-btn" onclick="pivotSystem.closeExcelFilter()">×</button>' +
+                '</div>' +
+                '<div class="excel-filter-content">' +
+                    '<div class="filter-search">' +
+                        '<input type="text" placeholder="Search values..." onkeyup="pivotSystem.filterExcelValues(this.value)">' +
+                    '</div>' +
+                    '<div class="filter-options">' +
+                        '<label class="filter-option">' +
+                            '<input type="checkbox" class="select-all" onchange="pivotSystem.toggleAllFilters(this.checked)"> Select All' +
+                        '</label>' +
+                        '<div class="filter-values" id="filterValuesList">' +
+                            filterValues.map(function(value) {
+                                var isSelected = !self.activeFilterValues || self.activeFilterValues.indexOf(String(value)) !== -1;
+                                return '<label class="filter-option">' +
+                                    '<input type="checkbox" value="' + value + '" ' + (isSelected ? 'checked' : '') + ' onchange="pivotSystem.updateFilterSelection()"> ' +
+                                    value +
+                                '</label>';
+                            }).join('') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="filter-actions">' +
+                        '<button class="btn" onclick="pivotSystem.applyExcelFilter(\'' + fieldName + '\')">Apply</button>' +
+                        '<button class="btn btn-secondary" onclick="pivotSystem.clearExcelFilter()">Clear</button>' +
+                    '</div>' +
+                '</div>';
+            
+            // Add to page
+            document.body.appendChild(filterContainer);
+            
+            // Position near the filter zone
+            var filtersZone = document.getElementById('filtersZone');
+            var rect = filtersZone.getBoundingClientRect();
+            filterContainer.style.position = 'fixed';
+            filterContainer.style.left = Math.min(rect.right + 10, window.innerWidth - 300) + 'px';
+            filterContainer.style.top = rect.top + 'px';
+            filterContainer.style.zIndex = '1000';
+            
+            // Update select all state
+            this.updateFilterSelection();
+        };
+
+        ProfessionalPivotSystem.prototype.applyExcelFilter = function(fieldName) {
+            var self = this;
+            var selectedValues = [];
+            var checkboxes = document.querySelectorAll('#filterValuesList input[type="checkbox"]:checked');
+            
+            checkboxes.forEach(function(checkbox) {
+                selectedValues.push(checkbox.value);
+            });
+            
+            // Store selected filter values
+            if (!this.activeFilterValues) {
+                this.activeFilterValues = {};
+            }
+            this.activeFilterValues[fieldName] = selectedValues;
+            
+            // Apply filter to all expanded pivot tables
+            this.expandedRows.forEach(function(rowIndex) {
+                self.generatePivotForRow(rowIndex);
+            });
+            
+            this.closeExcelFilter();
+            alert('Filter applied successfully! ' + selectedValues.length + ' values selected.');
+        };
+
+        ProfessionalPivotSystem.prototype.removeField = function(zone, fieldName) {
+            var index = this.pivotConfig[zone].indexOf(fieldName);
+            if (index > -1) {
+                this.pivotConfig[zone].splice(index, 1);
+                this.renderDropZones();
+            }
+        };
+
+        ProfessionalPivotSystem.prototype.resetBuilder = function() {
+            this.pivotConfig = {
+                columns: [],
+                rows: [],
+                values: []
+            };
+            this.renderDropZones();
+        };
+
+        ProfessionalPivotSystem.prototype.applyPivotConfig = function() {
+            var self = this;
+            // Validate configuration
+            if (this.pivotConfig.rows.length === 0) {
+                alert('Please add at least one field to Rows');
+                return;
+            }
+            
+            if (this.pivotConfig.values.length === 0) {
+                alert('Please add at least one field to Values');
+                return;
+            }
+            
+            if (this.pivotConfig.columns.length === 0) {
+                alert('Please add at least one field to Columns');
+                return;
+            }
+            
+            // Regenerate all expanded pivot tables
+            this.expandedRows.forEach(function(rowIndex) {
+                self.generatePivotForRow(rowIndex);
+            });
+            
+            // Close builder
+            this.builderVisible = false;
+            var content = document.getElementById('builderContent');
+            if (content) {
+                content.classList.remove('show');
+            }
+            
+            alert('Pivot configuration applied successfully!');
+        };
+
+        ProfessionalPivotSystem.prototype.handleDragLeave = function(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+        };
+
+        // Add remaining methods with similar ES5 conversion...
+        ProfessionalPivotSystem.prototype.createDimensionFilters = function() {
+            var self = this;
+            var filterGrid = document.getElementById('dimensionFilterGrid');
+            filterGrid.innerHTML = '';
+            
+            this.dimensionData.columns.forEach(function(col) {
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'filter-input';
+                input.placeholder = 'Filter ' + col + '...';
+                input.addEventListener('input', function(e) {
+                    self.dimensionFilters[col] = e.target.value.toLowerCase();
+                    self.applyFiltersAndPagination();
+                });
+                filterGrid.appendChild(input);
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.applyFiltersAndPagination = function() {
+            var self = this;
+            // Apply filters
+            this.filteredData = this.dimensionData.data.filter(function(row) {
+                // Global search
+                if (self.dimensionSearchTerm) {
+                    var searchMatch = Object.values(row).some(function(value) {
+                        return String(value).toLowerCase().indexOf(self.dimensionSearchTerm) !== -1;
+                    });
+                    if (!searchMatch) return false;
+                }
+                
+                // Column filters
+                for (var col in self.dimensionFilters) {
+                    var filterValue = self.dimensionFilters[col];
+                    if (filterValue && String(row[col]).toLowerCase().indexOf(filterValue) === -1) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+
+            // Apply sorting
+            if (this.dimensionSort.column) {
+                this.filteredData.sort(function(a, b) {
+                    var aVal = a[self.dimensionSort.column];
+                    var bVal = b[self.dimensionSort.column];
+                    
+                    var comparison = 0;
+                    if (typeof aVal === 'number' && typeof bVal === 'number') {
+                        comparison = aVal - bVal;
+                    } else {
+                        comparison = String(aVal).localeCompare(String(bVal));
+                    }
+                    
+                    return self.dimensionSort.direction === 'desc' ? -comparison : comparison;
+                });
+            }
+
+            // Update pagination
+            this.totalRecords = this.filteredData.length;
+            this.totalPages = Math.ceil(this.totalRecords / this.pageSize);
+            this.currentPage = Math.min(this.currentPage, this.totalPages || 1);
+            
+            this.updatePaginationControls();
+            this.renderDimensionTable();
+        };
+
+        // Continue with remaining methods...
+        ProfessionalPivotSystem.prototype.updatePaginationControls = function() {
+            var startRecord = (this.currentPage - 1) * this.pageSize + 1;
+            var endRecord = Math.min(this.currentPage * this.pageSize, this.totalRecords);
+            
+            document.getElementById('paginationInfo').textContent = 
+                'Showing ' + startRecord + ' - ' + endRecord + ' of ' + this.totalRecords + ' records';
+
+            // Update page select
+            var pageSelect = document.getElementById('pageSelect');
+            pageSelect.innerHTML = '';
+            for (var i = 1; i <= this.totalPages; i++) {
+                var option = document.createElement('option');
+                option.value = i;
+                option.textContent = 'Page ' + i;
+                if (i === this.currentPage) option.selected = true;
+                pageSelect.appendChild(option);
+            }
+
+            // Update button states
+            document.getElementById('firstBtn').disabled = this.currentPage === 1;
+            document.getElementById('prevBtn').disabled = this.currentPage === 1;
+            document.getElementById('nextBtn').disabled = this.currentPage === this.totalPages;
+            document.getElementById('lastBtn').disabled = this.currentPage === this.totalPages;
+        };
+
+        ProfessionalPivotSystem.prototype.goToPage = function(action) {
+            switch (action) {
+                case 'first':
+                    this.currentPage = 1;
+                    break;
+                case 'prev':
+                    this.currentPage = Math.max(1, this.currentPage - 1);
+                    break;
+                case 'next':
+                    this.currentPage = Math.min(this.totalPages, this.currentPage + 1);
+                    break;
+                case 'last':
+                    this.currentPage = this.totalPages;
+                    break;
+                default:
+                    this.currentPage = parseInt(action);
+                    break;
+            }
+            this.applyFiltersAndPagination();
+        };
+
+        ProfessionalPivotSystem.prototype.changePageSize = function(newSize) {
+            this.pageSize = parseInt(newSize);
+            this.currentPage = 1;
+            this.applyFiltersAndPagination();
+        };
+
+        ProfessionalPivotSystem.prototype.renderDimensionTable = function() {
+            var self = this;
+            if (!this.dimensionData.columns || !this.filteredData) return;
+
+            // Get current page data
+            var startIndex = (this.currentPage - 1) * this.pageSize;
+            var endIndex = startIndex + this.pageSize;
+            var pageData = this.filteredData.slice(startIndex, endIndex);
+
+            var html = '<table class="dimension-table"><thead><tr>';
+            
+            this.dimensionData.columns.forEach(function(col) {
+                var sortClass = self.dimensionSort.column === col ? 'sort-' + self.dimensionSort.direction : '';
+                html += '<th onclick="pivotSystem.sortDimensionTable(\'' + col + '\')" class="' + sortClass + '">' +
+                        col + '<span class="sort-icon"></span></th>';
+            });
+            
+            html += '</tr></thead><tbody>';
+
+            pageData.forEach(function(row, pageIndex) {
+                var originalIndex = self.dimensionData.data.indexOf(row);
+                var isExpanded = self.expandedRows.has(originalIndex);
+                
+                html += '<tr class="dimension-row ' + (isExpanded ? 'expanded' : '') + '" onclick="pivotSystem.toggleDimensionRow(' + originalIndex + ')">';
+                
+                self.dimensionData.columns.forEach(function(col, colIndex) {
+                    var value = row[col];
+                    var displayValue = typeof value === 'number' ? value.toLocaleString() : value;
+                    html += '<td>';
+                    if (colIndex === 0) {
+                        html += '<span class="expand-indicator">' + (isExpanded ? '▼' : '▶') + '</span>';
+                    }
+                    html += displayValue + '</td>';
+                });
+                
+                html += '</tr>';
+                
+                // Add pivot container
+                html += '<tr class="pivot-container ' + (isExpanded ? 'show' : '') + '" id="pivot-' + originalIndex + '">' +
+                        '<td colspan="' + self.dimensionData.columns.length + '">' +
+                            '<div class="pivot-header">' +
+                                '<div class="pivot-info" id="pivot-info-' + originalIndex + '">Loading pivot analysis...</div>' +
+                                '<input type="text" class="pivot-search" placeholder="Search pivot..." id="pivot-search-' + originalIndex + '" onkeyup="pivotSystem.searchPivotTable(' + originalIndex + ', this.value)">' +
+                            '</div>' +
+                            '<div class="pivot-content" id="pivot-content-' + originalIndex + '">' +
+                                (isExpanded ? self.getLoadingSpinner(originalIndex) : '') +
+                            '</div>' +
+                        '</td></tr>';
+            });
+
+            html += '</tbody></table>';
+            
+            if (pageData.length === 0) {
+                html = '<div class="no-data">No data found matching current filters.</div>';
+            }
+
+            document.getElementById('dimensionTableContainer').innerHTML = html;
+
+            // Generate pivot tables for expanded rows on current page
+            this.expandedRows.forEach(function(rowIndex) {
+                var rowInCurrentPage = pageData.some(function(row) {
+                    return self.dimensionData.data.indexOf(row) === rowIndex;
+                });
+                if (rowInCurrentPage) {
+                    self.generatePivotForRow(rowIndex);
+                }
+            });
+        };
+
+        // Add more essential methods...
+        ProfessionalPivotSystem.prototype.getLoadingSpinner = function(rowIndex) {
+            return '<div class="loading-container">' +
+                   '<div class="spinner"></div>' +
+                   '<div class="loading-text">Generating pivot table...</div>' +
+                   '<div class="loading-timer" id="timer-' + rowIndex + '">0s</div>' +
+                   '</div>';
+        };
+
+        ProfessionalPivotSystem.prototype.sortDimensionTable = function(column) {
+            if (this.dimensionSort.column === column) {
+                this.dimensionSort.direction = this.dimensionSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.dimensionSort.column = column;
+                this.dimensionSort.direction = 'asc';
+            }
+            this.applyFiltersAndPagination();
+        };
+
+        ProfessionalPivotSystem.prototype.toggleDimensionRow = function(rowIndex) {
+            if (this.expandedRows.has(rowIndex)) {
+                this.expandedRows.delete(rowIndex);
+                this.stopLoadingTimer(rowIndex);
+            } else {
+                this.expandedRows.add(rowIndex);
+            }
+            this.renderDimensionTable();
+        };
+
+        ProfessionalPivotSystem.prototype.generatePivotForRow = function(rowIndex) {
+            // Implementation continues...
+            var self = this;
+            var rowData = this.dimensionData.data[rowIndex];
+            var contentElement = document.getElementById('pivot-content-' + rowIndex);
+            var infoElement = document.getElementById('pivot-info-' + rowIndex);
+            
+            if (!contentElement) return;
+            
+            contentElement.innerHTML = this.getLoadingSpinner(rowIndex);
+            this.startLoadingTimer(rowIndex);
+            
+            var indexCols = this.pivotConfig.rows;
+            var valueCol = this.pivotConfig.values[0];
+            var pivotCol = this.pivotConfig.columns[0];
+            
+            if (!indexCols.length || !valueCol || !pivotCol) {
+                this.stopLoadingTimer(rowIndex);
+                contentElement.innerHTML = '<div class="error">Please configure pivot settings using the builder</div>';
+                return;
+            }
+            
+            var filterColumn = this.dimensionData.columns[0];
+            var filterValue = rowData[filterColumn];
+            
+            if (infoElement) {
+                infoElement.innerHTML = 'Analyzing: ' + filterColumn + ' = ' + filterValue + ' | Pivot: ' + indexCols.join(' → ') + ' vs ' + pivotCol + ' (' + valueCol + ')';
+            }
+            
+            fetch('/api/pivot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filter_column: filterColumn,
+                    filter_value: filterValue,
+                    pivot_config: {
+                        index_cols: indexCols,
+                        value_col: valueCol,
+                        columns_col: pivotCol
+                    }
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                self.pivotData[rowIndex] = data.pivot_data;
+                self.hierarchyLevels = data.hierarchy_levels;
+                self.columns = data.columns;
+                
+                self.stopLoadingTimer(rowIndex);
+                self.renderPivotTable(rowIndex);
+            })
+            .catch(function(error) {
+                self.stopLoadingTimer(rowIndex);
+                contentElement.innerHTML = '<div class="error">Error generating pivot: ' + error.message + '</div>';
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.startLoadingTimer = function(rowIndex) {
+            var self = this;
+            var seconds = 0;
+            this.loadingTimers[rowIndex] = setInterval(function() {
+                seconds++;
+                var timerElement = document.getElementById('timer-' + rowIndex);
+                if (timerElement) {
+                    timerElement.textContent = seconds + 's';
+                }
+            }, 1000);
+        };
+
+        ProfessionalPivotSystem.prototype.stopLoadingTimer = function(rowIndex) {
+            if (this.loadingTimers[rowIndex]) {
+                clearInterval(this.loadingTimers[rowIndex]);
+                delete this.loadingTimers[rowIndex];
+            }
+        };
+
+        // Add remaining essential methods
+        ProfessionalPivotSystem.prototype.renderPivotTable = function(rowIndex) {
+            var self = this;
+            var contentElement = document.getElementById('pivot-content-' + rowIndex);
+            if (!contentElement || !this.pivotData[rowIndex]) return;
+            
+            var treeData = this.processTreeData(rowIndex);
+            
+            // Render header
+            var headerHtml = '<tr><th>Item</th>';
+            this.columns.forEach(function(col) {
+                if (col !== 'Grand Total') {
+                    headerHtml += '<th>' + col + '</th>';
+                }
+            });
+            headerHtml += '<th>Total</th></tr>';
+            
+            // Render body
+            var bodyHtml = '';
+            for (var name in treeData) {
+                bodyHtml += self.renderTreeNode(rowIndex, name, treeData[name], 0);
+            }
+            
+            // Add Grand Total row
+            var grandTotalKey = null;
+            var grandTotalData = this.pivotData[rowIndex]['Grand Total'];
+            if (grandTotalData) {
+                for (var key in grandTotalData) {
+                    if (key.indexOf('Grand Total') !== -1) {
+                        grandTotalKey = key;
+                        break;
+                    }
+                }
+            }
+            
+            if (grandTotalKey) {
+                bodyHtml += '<tr class="total-row"><td><strong>Grand Total</strong></td>';
+                
+                this.columns.forEach(function(col) {
+                    if (col !== 'Grand Total') {
+                        var value = self.pivotData[rowIndex][col] ? self.pivotData[rowIndex][col][grandTotalKey] : null;
+                        bodyHtml += '<td class="value"><strong>' + self.formatCurrency(value) + '</strong></td>';
+                    }
+                });
+                
+                var grandTotal = this.pivotData[rowIndex]['Grand Total'][grandTotalKey];
+                bodyHtml += '<td class="value"><strong>' + this.formatCurrency(grandTotal) + '</strong></td>';
+                bodyHtml += '</tr>';
+            }
+            
+            var tableHtml = '<table class="tree-table"><thead>' + headerHtml + '</thead><tbody>' + bodyHtml + '</tbody></table>';
+            contentElement.innerHTML = tableHtml;
+        };
+
+        ProfessionalPivotSystem.prototype.processTreeData = function(rowIndex) {
+            var tree = {};
+            var pivotData = this.pivotData[rowIndex];
+            var self = this;
+            
+            for (var period in pivotData) {
+                if (period === 'Grand Total') continue;
+                
+                for (var key in pivotData[period]) {
+                    if (key.indexOf('Grand Total') !== -1) continue;
+                    
+                    var levels = this.parseKey(key);
+                    if (levels.length === 0) continue;
+                    
+                    var current = tree;
+                    levels.forEach(function(level, index) {
+                        if (!current[level]) {
+                            current[level] = {
+                                type: self.hierarchyLevels[index] ? self.hierarchyLevels[index].toLowerCase() : 'item',
+                                level: index,
+                                children: {},
+                                data: {}
+                            };
+                        }
+                        if (index === levels.length - 1) {
+                            current[level].data[period] = pivotData[period][key];
+                        } else {
+                            current = current[level].children;
+                        }
+                    });
+                }
+            }
+
+            return tree;
+        };
+
+        ProfessionalPivotSystem.prototype.parseKey = function(key) {
+            var match = key.match(/\(([^)]+)\)/);
+            if (match) {
+                return match[1].split(',').map(function(s) {
+                    return s.trim().replace(/'/g, '');
+                });
+            }
+            return [];
+        };
+
+        ProfessionalPivotSystem.prototype.renderTreeNode = function(rowIndex, name, node, level, prefix) {
+            prefix = prefix || '';
+            var nodeId = rowIndex + '-' + prefix + name;
+            var isExpanded = this.expandedTreeNodes[nodeId] || false;
+            var hasChildren = node.children && Object.keys(node.children).length > 0;
+            
+            var html = '<tr class="level-' + level + '"><td>';
+            if (hasChildren) {
+                html += '<button class="expand-btn ' + (isExpanded ? 'expanded' : '') + '" onclick="pivotSystem.toggleTreeNode(\'' + nodeId + '\', ' + rowIndex + ')">';
+                html += isExpanded ? '▼' : '▶';
+                html += '</button>';
+            } else {
+                html += '<span style="width: 16px; display: inline-block;"></span>';
+            }
+            html += name + '</td>';
+
+            var self = this;
+            this.columns.forEach(function(col) {
+                if (col !== 'Grand Total') {
+                    var value = self.getValueForPeriod(node, col);
+                    html += '<td class="value">' + self.formatCurrency(value) + '</td>';
+                }
+            });
+
+            var total = this.getValueForPeriod(node, 'Grand Total') || this.calculateTotal(node);
+            html += '<td class="value">' + this.formatCurrency(total) + '</td>';
+            html += '</tr>';
+
+            if (hasChildren && isExpanded) {
+                for (var childName in node.children) {
+                    html += this.renderTreeNode(rowIndex, childName, node.children[childName], level + 1, nodeId + '-');
+                }
+            }
+
+            return html;
+        };
+
+        ProfessionalPivotSystem.prototype.getValueForPeriod = function(node, period) {
+            if (node.data && node.data.hasOwnProperty(period)) {
+                return node.data[period];
+            }
+            
+            var total = 0;
+            var hasValue = false;
+            
+            for (var childName in node.children) {
+                var childValue = this.getValueForPeriod(node.children[childName], period);
+                if (childValue !== null && childValue !== undefined) {
+                    total += childValue;
+                    hasValue = true;
+                }
+            }
+            
+            return hasValue ? total : null;
+        };
+
+        ProfessionalPivotSystem.prototype.calculateTotal = function(node) {
+            var self = this;
+            var total = 0;
+            var hasValue = false;
+            
+            this.columns.forEach(function(col) {
+                if (col !== 'Grand Total') {
+                    var value = self.getValueForPeriod(node, col);
+                    if (value !== null && value !== undefined) {
+                        total += value;
+                        hasValue = true;
+                    }
+                }
+            });
+            
+            return hasValue ? total : null;
+        };
+
+        ProfessionalPivotSystem.prototype.toggleTreeNode = function(nodeId, rowIndex) {
+            this.expandedTreeNodes[nodeId] = !this.expandedTreeNodes[nodeId];
+            this.renderPivotTable(rowIndex);
+        };
+
+        ProfessionalPivotSystem.prototype.formatCurrency = function(value) {
+            if (value === null || value === undefined) {
+                return '<span class="null">-</span>';
+            }
+            return '<span class="positive">' + value.toLocaleString() + '</span>';
+        };
+
+        ProfessionalPivotSystem.prototype.searchPivotTable = function(rowIndex, searchTerm) {
+            this.pivotSearchTerms[rowIndex] = searchTerm.toLowerCase();
+            this.renderPivotTable(rowIndex);
+        };
+
+        ProfessionalPivotSystem.prototype.toggleDimensionFilters = function() {
+            var filters = document.getElementById('dimensionFilters');
+            if (filters.classList.contains('show')) {
+                filters.classList.remove('show');
+            } else {
+                filters.classList.add('show');
+            }
+        };
+
+        ProfessionalPivotSystem.prototype.clearDimensionFilters = function() {
+            var self = this;
+            this.dimensionFilters = {};
+            this.dimensionSearchTerm = '';
+            document.getElementById('dimensionSearch').value = '';
+            
+            var filterInputs = document.querySelectorAll('#dimensionFilterGrid .filter-input');
+            filterInputs.forEach(function(input) {
+                input.value = '';
+            });
+            
+            this.applyFiltersAndPagination();
+        };
+
+        // Add Excel-style filter functionality
+        ProfessionalPivotSystem.prototype.generateFactTableFilters = function() {
+            var self = this;
+            
+            // Check if filters are configured
+            if (this.pivotConfig.filters.length === 0) return;
+            
+            var filterColumn = this.pivotConfig.filters[0]; // Use first filter field
+            var firstDimension = this.dimensionData.columns[0];
+            
+            // Get unique values for the filter column from fact table
+            fetch('/api/filter-values', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filter_column: filterColumn,
+                    dimension_column: firstDimension
+                })
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (!data.error) {
+                    self.createExcelStyleFilters(data.filter_values);
+                }
+            })
+            .catch(function(error) {
+                console.error('Error loading filter values:', error);
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.createExcelStyleFilters = function(filterValues) {
+            var self = this;
+            var filterColumn = this.pivotConfig.filters[0];
+            
+            // Create filter container
+            var filterContainer = document.createElement('div');
+            filterContainer.className = 'excel-filter-container';
+            filterContainer.innerHTML = 
+                '<div class="excel-filter-header">' +
+                    '<strong>Filter: ' + filterColumn + '</strong>' +
+                    '<button class="filter-close-btn" onclick="pivotSystem.closeExcelFilter()">×</button>' +
+                '</div>' +
+                '<div class="excel-filter-content">' +
+                    '<div class="filter-search">' +
+                        '<input type="text" placeholder="Search values..." onkeyup="pivotSystem.filterExcelValues(this.value)">' +
+                    '</div>' +
+                    '<div class="filter-options">' +
+                        '<label class="filter-option">' +
+                            '<input type="checkbox" class="select-all" onchange="pivotSystem.toggleAllFilters(this.checked)"> Select All' +
+                        '</label>' +
+                        '<div class="filter-values" id="filterValuesList">' +
+                            filterValues.map(function(value) {
+                                return '<label class="filter-option">' +
+                                    '<input type="checkbox" value="' + value + '" checked onchange="pivotSystem.updateFilterSelection()"> ' +
+                                    value +
+                                '</label>';
+                            }).join('') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="filter-actions">' +
+                        '<button class="btn" onclick="pivotSystem.applyExcelFilter()">Apply</button>' +
+                        '<button class="btn btn-secondary" onclick="pivotSystem.clearExcelFilter()">Clear</button>' +
+                    '</div>' +
+                '</div>';
+            
+            // Add to page
+            document.body.appendChild(filterContainer);
+            
+            // Position near the filter zone
+            var filtersZone = document.getElementById('filtersZone');
+            var rect = filtersZone.getBoundingClientRect();
+            filterContainer.style.position = 'absolute';
+            filterContainer.style.left = rect.right + 10 + 'px';
+            filterContainer.style.top = rect.top + 'px';
+            filterContainer.style.zIndex = '1000';
+        };
+
+        ProfessionalPivotSystem.prototype.filterExcelValues = function(searchTerm) {
+            var filterOptions = document.querySelectorAll('#filterValuesList .filter-option');
+            filterOptions.forEach(function(option) {
+                var text = option.textContent.toLowerCase();
+                if (text.indexOf(searchTerm.toLowerCase()) !== -1) {
+                    option.style.display = 'block';
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.toggleAllFilters = function(checked) {
+            var checkboxes = document.querySelectorAll('#filterValuesList input[type="checkbox"]');
+            checkboxes.forEach(function(checkbox) {
+                if (checkbox.parentElement.style.display !== 'none') {
+                    checkbox.checked = checked;
+                }
+            });
+        };
+
+        ProfessionalPivotSystem.prototype.updateFilterSelection = function() {
+            var selectAll = document.querySelector('.select-all');
+            var checkboxes = document.querySelectorAll('#filterValuesList input[type="checkbox"]');
+            var visibleCheckboxes = Array.from(checkboxes).filter(function(cb) {
+                return cb.parentElement.style.display !== 'none';
+            });
+            var checkedCount = visibleCheckboxes.filter(function(cb) {
+                return cb.checked;
+            }).length;
+            
+            selectAll.checked = checkedCount === visibleCheckboxes.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+        };
+
+        ProfessionalPivotSystem.prototype.applyExcelFilter = function() {
+            var self = this;
+            var selectedValues = [];
+            var checkboxes = document.querySelectorAll('#filterValuesList input[type="checkbox"]:checked');
+            
+            checkboxes.forEach(function(checkbox) {
+                selectedValues.push(checkbox.value);
+            });
+            
+            // Store selected filter values
+            this.activeFilterValues = selectedValues;
+            
+            // Apply filter to all expanded pivot tables
+            this.expandedRows.forEach(function(rowIndex) {
+                self.generatePivotForRow(rowIndex);
+            });
+            
+            this.closeExcelFilter();
+            alert('Filter applied successfully!');
+        };
+
+        ProfessionalPivotSystem.prototype.clearExcelFilter = function() {
+            this.activeFilterValues = null;
+            var checkboxes = document.querySelectorAll('#filterValuesList input[type="checkbox"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = true;
+            });
+            document.querySelector('.select-all').checked = true;
+        };
+
+        ProfessionalPivotSystem.prototype.closeExcelFilter = function() {
+            var filterContainer = document.querySelector('.excel-filter-container');
+            if (filterContainer) {
+                filterContainer.remove();
+            }
+        };
+
+        // Initialize the system
+        var pivotSystem = new ProfessionalPivotSystem();
+    </script>
+</body>
+</html>
