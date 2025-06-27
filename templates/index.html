@@ -1031,86 +1031,91 @@
 
         ProfessionalPivotSystem.prototype.loadDimensionData = function() {
             var self = this;
-            
-            // Since we don't have a real API, let's create mock data for demonstration
-            setTimeout(function() {
-                try {
-                    // Mock dimension data
-                    self.dimensionData = {
-                        columns: ['Region', 'Category', 'Product', 'Sales_Amount', 'Quantity'],
-                        data: [
-                            { Region: 'North', Category: 'Electronics', Product: 'Laptop', Sales_Amount: 150000, Quantity: 150 },
-                            { Region: 'South', Category: 'Electronics', Product: 'Phone', Sales_Amount: 200000, Quantity: 400 },
-                            { Region: 'East', Category: 'Clothing', Product: 'Shirt', Sales_Amount: 75000, Quantity: 500 },
-                            { Region: 'West', Category: 'Clothing', Product: 'Pants', Sales_Amount: 90000, Quantity: 300 },
-                            { Region: 'North', Category: 'Books', Product: 'Novel', Sales_Amount: 25000, Quantity: 250 },
-                            { Region: 'South', Category: 'Books', Product: 'Textbook', Sales_Amount: 45000, Quantity: 180 },
-                            { Region: 'East', Category: 'Electronics', Product: 'Tablet', Sales_Amount: 120000, Quantity: 200 },
-                            { Region: 'West', Category: 'Electronics', Product: 'Watch', Sales_Amount: 80000, Quantity: 160 },
-                            { Region: 'North', Category: 'Clothing', Product: 'Jacket', Sales_Amount: 110000, Quantity: 220 },
-                            { Region: 'South', Category: 'Clothing', Product: 'Shoes', Sales_Amount: 95000, Quantity: 190 },
-                            { Region: 'East', Category: 'Books', Product: 'Magazine', Sales_Amount: 15000, Quantity: 300 },
-                            { Region: 'West', Category: 'Books', Product: 'Journal', Sales_Amount: 20000, Quantity: 100 },
-                            { Region: 'North', Category: 'Electronics', Product: 'Camera', Sales_Amount: 175000, Quantity: 125 },
-                            { Region: 'South', Category: 'Electronics', Product: 'Speaker', Sales_Amount: 85000, Quantity: 170 },
-                            { Region: 'East', Category: 'Clothing', Product: 'Dress', Sales_Amount: 65000, Quantity: 130 }
-                        ]
-                    };
+            fetch('/api/dimensions')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
                     
+                    self.dimensionData = data;
                     self.createDimensionFilters();
                     self.applyFiltersAndPagination();
                     self.loadPivotFields();
-                    
-                } catch (error) {
-                    console.error('Error in loadDimensionData:', error);
+                })
+                .catch(function(error) {
+                    console.error('Error loading dimension data:', error);
                     var container = document.getElementById('dimensionTableContainer');
                     if (container) {
-                        container.innerHTML = '<div class="error">Error loading dimension data: ' + error.message + '</div>';
+                        container.innerHTML = '<div class="error">Error loading dimension data: ' + error.message + 
+                            '<br><small>Make sure the Flask server is running on port 5000</small></div>';
                     }
-                }
-            }, 500); // Simulate loading delay
+                });
         };
 
         ProfessionalPivotSystem.prototype.loadPivotFields = function() {
             var self = this;
             if (!this.dimensionData.columns || this.dimensionData.columns.length === 0) return;
             
-            // Mock pivot fields data since we don't have a real API
-            setTimeout(function() {
-                try {
-                    // Simulate API response with categorical and numeric columns
-                    var data = {
-                        categorical_columns: ['Region', 'Category', 'Product'],
-                        numeric_columns: ['Sales_Amount', 'Quantity']
-                    };
-                    
-                    self.availableFields = [];
-                    
-                    // Add categorical fields
-                    data.categorical_columns.forEach(function(col) {
-                        self.availableFields.push({
-                            name: col,
-                            type: 'text',
-                            isNumeric: false
-                        });
-                    });
-                    
-                    // Add numeric fields
-                    data.numeric_columns.forEach(function(col) {
-                        self.availableFields.push({
-                            name: col,
-                            type: 'number',
-                            isNumeric: true
-                        });
-                    });
-                    
-                    self.renderFieldList();
-                    self.setDefaultConfiguration();
-                    
-                } catch (error) {
-                    console.error('Error loading pivot fields:', error);
+            var filterColumn = this.dimensionData.columns[0];
+            
+            fetch('/api/pivot-columns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filter_column: filterColumn })
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                 }
-            }, 200);
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                self.availableFields = [];
+                
+                // Add categorical fields
+                data.categorical_columns.forEach(function(col) {
+                    self.availableFields.push({
+                        name: col,
+                        type: 'text',
+                        isNumeric: false
+                    });
+                });
+                
+                // Add numeric fields
+                data.numeric_columns.forEach(function(col) {
+                    self.availableFields.push({
+                        name: col,
+                        type: 'number',
+                        isNumeric: true
+                    });
+                });
+                
+                self.renderFieldList();
+                self.setDefaultConfiguration();
+            })
+            .catch(function(error) {
+                console.error('Error loading pivot fields:', error);
+                // Set basic fallback configuration
+                self.availableFields = self.dimensionData.columns.map(function(col) {
+                    return {
+                        name: col,
+                        type: 'text',
+                        isNumeric: false
+                    };
+                });
+                self.renderFieldList();
+                self.setDefaultConfiguration();
+            });
         };
 
         ProfessionalPivotSystem.prototype.renderFieldList = function() {
@@ -1573,66 +1578,43 @@
                 infoElement.innerHTML = 'Analyzing: ' + filterColumn + ' = ' + filterValue + ' | Pivot: ' + indexCols.join(' → ') + ' vs ' + pivotCol + ' (' + valueCol + ')';
             }
             
-            // Mock pivot data generation since we don't have a real API
-            setTimeout(function() {
-                try {
-                    // Generate mock pivot data
-                    var mockPivotData = self.generateMockPivotData(filterValue, indexCols, valueCol, pivotCol);
-                    
-                    self.pivotData[rowIndex] = mockPivotData.pivot_data;
-                    self.hierarchyLevels = mockPivotData.hierarchy_levels;
-                    self.columns = mockPivotData.columns;
-                    
-                    self.stopLoadingTimer(rowIndex);
-                    self.renderPivotTable(rowIndex);
-                    
-                } catch (error) {
-                    self.stopLoadingTimer(rowIndex);
-                    contentElement.innerHTML = '<div class="error">Error generating pivot: ' + error.message + '</div>';
+            fetch('/api/pivot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filter_column: filterColumn,
+                    filter_value: filterValue,
+                    pivot_config: {
+                        index_cols: indexCols,
+                        value_col: valueCol,
+                        columns_col: pivotCol
+                    }
+                })
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                 }
-            }, 1000 + Math.random() * 1000); // Random delay 1-2 seconds
-        };
-
-        // Generate mock pivot data for demonstration
-        ProfessionalPivotSystem.prototype.generateMockPivotData = function(filterValue, indexCols, valueCol, pivotCol) {
-            var mockData = {
-                pivot_data: {},
-                hierarchy_levels: indexCols,
-                columns: ['Q1', 'Q2', 'Q3', 'Q4', 'Grand Total']
-            };
-            
-            // Generate sample hierarchy data
-            var quarters = ['Q1', 'Q2', 'Q3', 'Q4', 'Grand Total'];
-            
-            quarters.forEach(function(quarter) {
-                mockData.pivot_data[quarter] = {};
-                
-                // Generate multi-level hierarchy based on indexCols
-                if (indexCols.includes('Category')) {
-                    ['Electronics', 'Clothing', 'Books'].forEach(function(category) {
-                        if (indexCols.includes('Product')) {
-                            // Two-level hierarchy: Category > Product
-                            ['Laptop', 'Phone', 'Tablet'].forEach(function(product) {
-                                var key = "('" + category + "', '" + product + "')";
-                                mockData.pivot_data[quarter][key] = Math.floor(Math.random() * 50000) + 10000;
-                            });
-                            
-                            // Category totals
-                            var categoryKey = "('" + category + "', 'All')";
-                            mockData.pivot_data[quarter][categoryKey] = Math.floor(Math.random() * 150000) + 50000;
-                        } else {
-                            // Single level: Category only
-                            var key = "('" + category + "')";
-                            mockData.pivot_data[quarter][key] = Math.floor(Math.random() * 100000) + 30000;
-                        }
-                    });
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.error) {
+                    throw new Error(data.error);
                 }
                 
-                // Grand totals
-                mockData.pivot_data[quarter]["('Grand Total')"] = Math.floor(Math.random() * 500000) + 200000;
+                self.pivotData[rowIndex] = data.pivot_data;
+                self.hierarchyLevels = data.hierarchy_levels;
+                self.columns = data.columns;
+                
+                self.stopLoadingTimer(rowIndex);
+                self.renderPivotTable(rowIndex);
+            })
+            .catch(function(error) {
+                self.stopLoadingTimer(rowIndex);
+                console.error('Pivot generation error:', error);
+                contentElement.innerHTML = '<div class="error">Error generating pivot: ' + error.message + 
+                    '<br><small>Check browser console for details</small></div>';
             });
-            
-            return mockData;
         };
 
         ProfessionalPivotSystem.prototype.startLoadingTimer = function(rowIndex) {
@@ -1924,18 +1906,20 @@
                 })
             })
             .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                }
                 return response.json();
             })
             .then(function(data) {
-                if (!data.error) {
-                    self.createExcelStyleFilters(fieldName, data.filter_values);
-                } else {
-                    alert('Error loading filter values: ' + data.error);
+                if (data.error) {
+                    throw new Error(data.error);
                 }
+                self.createExcelStyleFilters(fieldName, data.filter_values);
             })
             .catch(function(error) {
                 console.error('Error loading filter values:', error);
-                alert('Error loading filter values');
+                alert('Error loading filter values: ' + error.message);
             });
         };
 
