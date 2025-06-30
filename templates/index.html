@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+'<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -957,17 +957,22 @@
                 <div class="pagination-info" id="paginationInfo">
                     Showing 0 - 0 of 0 records
                 </div>
-                <div class="pagination-controls">
-                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('next')" id="nextBtn">Next</button>
-                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('last')" id="lastBtn">Last</button>
-                    <select class="pagination-select" id="pageSizeSelect" onchange="pivotSystem.changePageSize(this.value)">
-                        <option value="25">25</option>
-                        <option value="50" selected>50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                        <option value="500">500</option>
-                    </select>
-                </div>
+<div class="pagination-controls">
+    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('first')" id="firstBtn">First</button>
+    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('prev')" id="prevBtn">Prev</button>
+    <select class="pagination-select" id="pageSelect" onchange="pivotSystem.goToPage(this.value)"></select>
+    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('next')" id="nextBtn">Next</button>
+    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('last')" id="lastBtn">Last</button>
+    <select class="pagination-select" id="pageSizeSelect" onchange="pivotSystem.changePageSize(this.value)">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+        <option value="500">500</option>
+    </select>
+</div>
+
+
             </div>
 
             <div class="dimension-container">
@@ -2059,7 +2064,4 @@
         var pivotSystem = new ProfessionalPivotSystem();
     </script>
 </body>
-</html>goToPage('first')" id="firstBtn">First</button>
-                    <button class="btn pagination-btn" onclick="pivotSystem.goToPage('prev')" id="prevBtn">Prev</button>
-                    <select class="pagination-select" id="pageSelect" onchange="pivotSystem.goToPage(this.value)"></select>
-                    <button class="btn pagination-btn" onclick="pivotSystem.
+</html>
