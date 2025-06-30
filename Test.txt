@@ -1,0 +1,85 @@
+Looking at your code, I can see the issue. The pivot table is only using one column because of these specific lines in the `generatePivotForRow` method:
+
+```javascript
+const valueCol = this.pivotConfig.values[0]; // Use first value field
+const pivotCol = this.pivotConfig.columns[0]; // Use first column field
+```
+
+The code is explicitly taking only the **first** item from each array, even though your pivot configuration allows multiple fields. Here's how to fix it to support multiple columns:
+
+Here's what your backend should handle:
+
+```python
+# Backend API changes needed
+@app.route('/api/pivot', methods=['POST'])
+def generate_pivot():
+    data = request.get_json()
+    
+    filter_column = data['filter_column']
+    filter_value = data['filter_value']
+    pivot_config = data['pivot_config']
+    
+    index_cols = pivot_config['index_cols']
+    value_cols = pivot_config['value_cols']  # Now an array
+    columns_cols = pivot_config['columns_cols']  # Now an array
+    
+    # Filter the dataframe
+    filtered_df = df[df[filter_column] == filter_value]
+    
+    # Create pivot table with multiple value columns
+    if len(value_cols) == 1 and len(columns_cols) == 1:
+        # Single value, single column (existing logic)
+        pivot_table = pd.pivot_table(
+            filtered_df,
+            index=index_cols,
+            columns=columns_cols[0],
+            values=value_cols[0],
+            aggfunc='sum',
+            fill_value=0,
+            margins=True
+        )
+    else:
+        # Multiple values or columns - create more complex pivot
+        pivot_table = pd.pivot_table(
+            filtered_df,
+            index=index_cols,
+            columns=columns_cols,  # Can handle multiple columns
+            values=value_cols,     # Can handle multiple values
+            aggfunc='sum',
+            fill_value=0,
+            margins=True
+        )
+    
+    # Convert to the format your frontend expects
+    pivot_data = convert_pivot_to_tree_format(pivot_table)
+    
+    return jsonify({
+        'pivot_data': pivot_data,
+        'hierarchy_levels': index_cols,
+        'columns': pivot_table.columns.tolist()
+    })
+```
+
+**Key changes needed:**
+
+1. **Frontend**: ✅ Already updated to send arrays instead of single values
+2. **Backend**: You need to modify your Python/Flask backend to:
+   - Accept `value_cols` and `columns_cols` as arrays
+   - Handle multiple columns in the pivot table creation
+   - Support multi-level column headers if using multiple pivot columns
+
+**For multiple columns in pandas pivot_table:**
+```python
+# Example with multiple columns and values
+pivot_table = pd.pivot_table(
+    df,
+    index=['Category', 'Subcategory'],           # Multiple row levels
+    columns=['Year', 'Quarter'],                 # Multiple column levels  
+    values=['Sales', 'Profit', 'Quantity'],     # Multiple value fields
+    aggfunc='sum',
+    fill_value=0,
+    margins=True
+)
+```
+
+This will create a more complex pivot with multi-level headers that your frontend can then render appropriately. Would you like me to help you modify the backend code as well?
