@@ -1,85 +1,363 @@
-Looking at your code, I can see the issue. The pivot table is only using one column because of these specific lines in the `generatePivotForRow` method:
+from flask import Flask, render_template, request, jsonify
+import pandas as pd
+import numpy as np
+import json
 
-```javascript
-const valueCol = this.pivotConfig.values[0]; // Use first value field
-const pivotCol = this.pivotConfig.columns[0]; // Use first column field
-```
+app = Flask(__name__)
 
-The code is explicitly taking only the **first** item from each array, even though your pivot configuration allows multiple fields. Here's how to fix it to support multiple columns:
+class DynamicPivotSystem:
+    def __init__(self):
+        self.dimension_df, self.fact_df = self.create_sample_data()
+    
+    def create_sample_data(self):
+        """Create sample dimension and fact tables"""
+        np.random.seed(42)
+        
+        # Dimension Table - Business Units/Categories
+        dimension_data = [
+            {'Business_Unit': 'Electronics', 'Manager': 'John Smith', 'Budget': 5000000, 'Target': 6000000},
+            {'Business_Unit': 'Furniture', 'Manager': 'Sarah Johnson', 'Budget': 2000000, 'Target': 2500000},
+            {'Business_Unit': 'Clothing', 'Manager': 'Mike Chen', 'Budget': 3000000, 'Target': 3500000},
+            {'Business_Unit': 'Sports', 'Manager': 'Lisa Wang', 'Budget': 1500000, 'Target': 2000000},
+            {'Business_Unit': 'Books', 'Manager': 'David Brown', 'Budget': 800000, 'Target': 1000000},
+        ]
+        dimension_df = pd.DataFrame(dimension_data)
+        
+        # Fact Table - Detailed sales transactions
+        fact_data = []
+        regions = ['North', 'South', 'East', 'West']
+        business_units = ['Electronics', 'Furniture', 'Clothing', 'Sports', 'Books']
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+        
+        products = {
+            'Electronics': ['Laptop', 'Mobile', 'Tablet', 'TV', 'Camera'],
+            'Furniture': ['Chair', 'Table', 'Sofa', 'Bed', 'Desk'],
+            'Clothing': ['Shirt', 'Pants', 'Dress', 'Jacket', 'Shoes'],
+            'Sports': ['Football', 'Basketball', 'Tennis', 'Golf', 'Swimming'],
+            'Books': ['Fiction', 'Non-Fiction', 'Educational', 'Comics', 'Biography']
+        }
+        
+        for business_unit in business_units:
+            for region in regions:
+                for product in products[business_unit]:
+                    for month in months:
+                        if np.random.random() > 0.2:  # 80% chance of having sales
+                            if business_unit == 'Electronics':
+                                sales = np.random.randint(50000, 300000)
+                            elif business_unit == 'Furniture':
+                                sales = np.random.randint(20000, 150000)
+                            elif business_unit == 'Clothing':
+                                sales = np.random.randint(15000, 80000)
+                            elif business_unit == 'Sports':
+                                sales = np.random.randint(10000, 60000)
+                            else:  # Books
+                                sales = np.random.randint(5000, 30000)
+                            
+                            fact_data.append({
+                                'Business_Unit': business_unit,
+                                'Region': region,
+                                'Product': product,
+                                'Month': month,
+                                'Sales': sales,
+                                'Quantity': np.random.randint(10, 100),
+                                'Cost': int(sales * 0.7),  # 70% cost ratio
+                                'Profit': int(sales * 0.3)  # 30% profit ratio
+                            })
+        
+        fact_df = pd.DataFrame(fact_data)
+        return dimension_df, fact_df
+    
+    def get_dimension_table(self):
+        """Return dimension table as dict"""
+        return {
+            'columns': list(self.dimension_df.columns),
+            'data': self.dimension_df.to_dict('records')
+        }
+    
+    def filter_and_pivot(self, filter_column, filter_value, pivot_config):
+        """Filter fact table and create pivot - now supports multiple columns"""
+        try:
+            # Filter the fact dataframe
+            filtered_df = self.fact_df[self.fact_df[filter_column] == filter_value].copy()
+            
+            if filtered_df.empty:
+                return {'error': f'No data found for {filter_column} = {filter_value}'}
+            
+            # Extract pivot configuration - handle both old and new formats
+            index_cols = pivot_config.get('index_cols', [])
+            
+            # Handle both old single-column format and new multi-column format
+            if 'value_cols' in pivot_config:
+                value_cols = pivot_config['value_cols']  # New format (array)
+            else:
+                value_cols = [pivot_config.get('value_col', 'Sales')]  # Old format (single)
+            
+            if 'columns_cols' in pivot_config:
+                columns_cols = pivot_config['columns_cols']  # New format (array)
+            else:
+                columns_cols = [pivot_config.get('columns_col', 'Month')]  # Old format (single)
+            
+            print(f"Original config - Index: {index_cols}, Values: {value_cols}, Columns: {columns_cols}")
+            
+            # Clean the configuration
+            index_cols = [col for col in index_cols 
+                         if col != filter_column and col not in columns_cols and col not in value_cols and col in filtered_df.columns]
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            index_cols = [col for col in index_cols if not (col in seen or seen.add(col))]
+            
+            print(f"Cleaned index_cols: {index_cols}")
+            
+            if not index_cols:
+                # If no valid index columns, use the first suitable column
+                available_cols = [col for col in filtered_df.columns 
+                                if col not in [filter_column] + value_cols + columns_cols]
+                if available_cols:
+                    index_cols = [available_cols[0]]
+                else:
+                    return {'error': 'No suitable columns found for pivot index'}
+            
+            # Validate value columns
+            valid_value_cols = [col for col in value_cols if col in filtered_df.columns]
+            if not valid_value_cols:
+                return {'error': f'Value columns {value_cols} not found in data'}
+            
+            # Validate column columns
+            valid_columns_cols = [col for col in columns_cols if col in filtered_df.columns]
+            if not valid_columns_cols:
+                return {'error': f'Column fields {columns_cols} not found in data'}
+            
+            print(f"Final config - Index: {index_cols}, Values: {valid_value_cols}, Columns: {valid_columns_cols}")
+            
+            # Create pivot based on complexity
+            if len(valid_value_cols) == 1 and len(valid_columns_cols) == 1:
+                # Simple single-value, single-column pivot
+                return self._create_simple_pivot(filtered_df, index_cols, valid_value_cols[0], valid_columns_cols[0], filter_column, filter_value)
+            else:
+                # Complex multi-value or multi-column pivot
+                return self._create_complex_pivot(filtered_df, index_cols, valid_value_cols, valid_columns_cols, filter_column, filter_value)
+            
+        except Exception as e:
+            print(f"Pivot error details: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'error': f'Pivot generation failed: {str(e)}'}
 
-Here's what your backend should handle:
+    def _create_simple_pivot(self, filtered_df, index_cols, value_col, columns_col, filter_column, filter_value):
+        """Create a simple pivot table (single value, single column)"""
+        # Aggregate data first to handle duplicates
+        groupby_cols = index_cols + [columns_col]
+        agg_df = filtered_df.groupby(groupby_cols)[value_col].sum().reset_index()
+        
+        # Create pivot table
+        pivot = pd.pivot_table(
+            agg_df,
+            values=value_col,
+            index=index_cols,
+            columns=columns_col,
+            aggfunc='sum',
+            fill_value=0,
+            margins=True,
+            margins_name='Grand Total'
+        )
+        
+        # Convert to JSON format
+        result = {}
+        for col in pivot.columns:
+            result[str(col)] = {}
+            for idx in pivot.index:
+                key = self._format_index_key(idx, len(index_cols))
+                value = pivot.loc[idx, col]
+                result[str(col)][key] = self._format_value(value)
+        
+        return {
+            'pivot_data': result,
+            'hierarchy_levels': index_cols,
+            'value_columns': [value_col],
+            'columns': [str(col) for col in pivot.columns],
+            'filter_info': f'{filter_column}: {filter_value}',
+            'total_records': len(filtered_df)
+        }
 
-```python
-# Backend API changes needed
+    def _create_complex_pivot(self, filtered_df, index_cols, value_cols, columns_cols, filter_column, filter_value):
+        """Create a complex pivot table (multiple values and/or columns)"""
+        
+        # If multiple columns, combine them into a single multi-level column
+        if len(columns_cols) > 1:
+            # Create a combined column for multi-level pivoting
+            filtered_df['_combined_cols'] = filtered_df[columns_cols].apply(
+                lambda x: ' | '.join(x.astype(str)), axis=1
+            )
+            pivot_col = '_combined_cols'
+        else:
+            pivot_col = columns_cols[0]
+        
+        pivot_results = {}
+        all_columns = set()
+        
+        # Create separate pivot for each value column
+        for value_col in value_cols:
+            # Aggregate data
+            groupby_cols = index_cols + [pivot_col]
+            agg_df = filtered_df.groupby(groupby_cols)[value_col].sum().reset_index()
+            
+            # Create pivot
+            pivot = pd.pivot_table(
+                agg_df,
+                values=value_col,
+                index=index_cols,
+                columns=pivot_col,
+                aggfunc='sum',
+                fill_value=0,
+                margins=True,
+                margins_name='Grand Total'
+            )
+            
+            # Store results with value column prefix
+            for col in pivot.columns:
+                column_name = f"{value_col}_{col}" if len(value_cols) > 1 else str(col)
+                pivot_results[column_name] = {}
+                all_columns.add(column_name)
+                
+                for idx in pivot.index:
+                    key = self._format_index_key(idx, len(index_cols))
+                    value = pivot.loc[idx, col]
+                    pivot_results[column_name][key] = self._format_value(value)
+        
+        return {
+            'pivot_data': pivot_results,
+            'hierarchy_levels': index_cols,
+            'value_columns': value_cols,
+            'columns': sorted(list(all_columns)),
+            'filter_info': f'{filter_column}: {filter_value}',
+            'total_records': len(filtered_df),
+            'is_complex': True,
+            'config_used': {
+                'value_cols': value_cols,
+                'columns_cols': columns_cols
+            }
+        }
+
+    def _format_index_key(self, idx, num_index_cols):
+        """Format index key for consistent frontend processing"""
+        if isinstance(idx, tuple):
+            return str(idx)
+        else:
+            # Handle single index - pad with empty strings to match expected structure
+            return f"('{idx}'" + ", ''" * (num_index_cols - 1) + ")"
+
+    def _format_value(self, value):
+        """Format values for JSON serialization"""
+        if pd.isna(value) or value == 0:
+            return None
+        else:
+            return int(value) if isinstance(value, (np.integer, np.floating)) else value
+
+    def get_available_pivot_columns(self, filter_column):
+        """Get columns available for pivot configuration, excluding the filter column"""
+        fact_columns = list(self.fact_df.columns)
+        
+        # Separate columns by type
+        categorical_cols = []
+        numeric_cols = []
+        
+        for col in fact_columns:
+            if col == filter_column:
+                continue  # Skip the filter column
+                
+            # Check if column is numeric
+            if pd.api.types.is_numeric_dtype(self.fact_df[col]):
+                numeric_cols.append(col)
+            else:
+                categorical_cols.append(col)
+        
+        return {
+            'all_columns': fact_columns,
+            'categorical_columns': categorical_cols,
+            'numeric_columns': numeric_cols,
+            'filter_column': filter_column
+        }
+
+# Initialize the system
+pivot_system = DynamicPivotSystem()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/dimensions')
+def get_dimensions():
+    """Get dimension table data"""
+    try:
+        return jsonify(pivot_system.get_dimension_table())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/pivot', methods=['POST'])
-def generate_pivot():
-    data = request.get_json()
-    
-    filter_column = data['filter_column']
-    filter_value = data['filter_value']
-    pivot_config = data['pivot_config']
-    
-    index_cols = pivot_config['index_cols']
-    value_cols = pivot_config['value_cols']  # Now an array
-    columns_cols = pivot_config['columns_cols']  # Now an array
-    
-    # Filter the dataframe
-    filtered_df = df[df[filter_column] == filter_value]
-    
-    # Create pivot table with multiple value columns
-    if len(value_cols) == 1 and len(columns_cols) == 1:
-        # Single value, single column (existing logic)
-        pivot_table = pd.pivot_table(
-            filtered_df,
-            index=index_cols,
-            columns=columns_cols[0],
-            values=value_cols[0],
-            aggfunc='sum',
-            fill_value=0,
-            margins=True
-        )
-    else:
-        # Multiple values or columns - create more complex pivot
-        pivot_table = pd.pivot_table(
-            filtered_df,
-            index=index_cols,
-            columns=columns_cols,  # Can handle multiple columns
-            values=value_cols,     # Can handle multiple values
-            aggfunc='sum',
-            fill_value=0,
-            margins=True
-        )
-    
-    # Convert to the format your frontend expects
-    pivot_data = convert_pivot_to_tree_format(pivot_table)
-    
-    return jsonify({
-        'pivot_data': pivot_data,
-        'hierarchy_levels': index_cols,
-        'columns': pivot_table.columns.tolist()
-    })
-```
+def get_pivot():
+    """Get filtered and pivoted data - now supports multiple columns"""
+    try:
+        data = request.get_json()
+        print(f"Received pivot request: {data}")  # Debug log
+        
+        filter_column = data.get('filter_column')
+        filter_value = data.get('filter_value')
+        pivot_config = data.get('pivot_config', {})
+        
+        if not filter_column or not filter_value:
+            return jsonify({'error': 'filter_column and filter_value are required'}), 400
+        
+        print(f"Filtering by {filter_column} = {filter_value}")  # Debug log
+        print(f"Pivot config: {pivot_config}")  # Debug log
+        
+        result = pivot_system.filter_and_pivot(filter_column, filter_value, pivot_config)
+        
+        if 'error' in result:
+            print(f"Pivot error: {result['error']}")  # Debug log
+            return jsonify(result), 400
+        
+        print(f"Pivot successful. Columns: {result.get('columns', [])}")  # Debug log
+        return jsonify(result)
+        
+    except Exception as e:
+        error_msg = f'Server error in pivot generation: {str(e)}'
+        print(error_msg)  # Debug log
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': error_msg}), 500
 
-**Key changes needed:**
+@app.route('/api/pivot-columns', methods=['POST'])
+def get_pivot_columns():
+    """Get available columns for pivot configuration based on filter selection"""
+    try:
+        data = request.get_json()
+        filter_column = data.get('filter_column')
+        
+        if not filter_column:
+            return jsonify({'error': 'filter_column is required'}), 400
+        
+        columns_info = pivot_system.get_available_pivot_columns(filter_column)
+        return jsonify(columns_info)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-1. **Frontend**: ✅ Already updated to send arrays instead of single values
-2. **Backend**: You need to modify your Python/Flask backend to:
-   - Accept `value_cols` and `columns_cols` as arrays
-   - Handle multiple columns in the pivot table creation
-   - Support multi-level column headers if using multiple pivot columns
+@app.route('/api/fact-columns')
+def get_fact_columns():
+    """Get available columns from fact table for configuration"""
+    try:
+        return jsonify({
+            'columns': list(pivot_system.fact_df.columns),
+            'sample_data': pivot_system.fact_df.head(3).to_dict('records'),
+            'data_types': {col: str(dtype) for col, dtype in pivot_system.fact_df.dtypes.items()}
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-**For multiple columns in pandas pivot_table:**
-```python
-# Example with multiple columns and values
-pivot_table = pd.pivot_table(
-    df,
-    index=['Category', 'Subcategory'],           # Multiple row levels
-    columns=['Year', 'Quarter'],                 # Multiple column levels  
-    values=['Sales', 'Profit', 'Quantity'],     # Multiple value fields
-    aggfunc='sum',
-    fill_value=0,
-    margins=True
-)
-```
-
-This will create a more complex pivot with multi-level headers that your frontend can then render appropriately. Would you like me to help you modify the backend code as well?
+if __name__ == '__main__':
+    print("🚀 Dynamic Pivot System Started!")
+    print(f"📊 Dimension table: {pivot_system.dimension_df.shape}")
+    print(f"📈 Fact table: {pivot_system.fact_df.shape}")
+    print("🌐 Visit http://localhost:5000")
+    app.run(debug=True, host='0.0.0.0', port=5000)
