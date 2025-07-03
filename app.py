@@ -130,7 +130,7 @@ class DynamicPivotSystem:
                 return self._handle_missing_config(filtered_df, filter_column, index_cols, value_cols, columns_cols)
             
             # Create Excel-style hierarchical pivot
-            return self._create_excel_style_pivot(filtered_df, index_cols, value_cols, columns_cols)
+            return self._create_excel_style_pivot_enhanced(filtered_df, index_cols, value_cols, columns_cols)
                 
         except Exception as e:
             print(f"Pivot error details: {e}")
@@ -164,10 +164,10 @@ class DynamicPivotSystem:
             else:
                 return {'error': 'No suitable columns found for pivot columns'}
         
-        return self._create_excel_style_pivot(df, index_cols, value_cols, columns_cols)
+        return self._create_excel_style_pivot_enhanced(df, index_cols, value_cols, columns_cols)
     
-    def _create_excel_style_pivot(self, df, index_cols, value_cols, columns_cols):
-        """Create Excel-style pivot with hierarchical columns and proper totals"""
+    def _create_excel_style_pivot_enhanced(self, df, index_cols, value_cols, columns_cols):
+        """Create enhanced Excel-style pivot with all requested features"""
         try:
             # Create pivot table for each value column
             pivots = {}
@@ -184,17 +184,21 @@ class DynamicPivotSystem:
                 )
                 pivots[value_col] = pivot
             
-            # Process the pivot data into Excel-style structure
-            result = self._process_excel_structure(pivots, index_cols, value_cols, columns_cols)
+            # Process the pivot data into enhanced Excel-style structure
+            result = self._process_enhanced_excel_structure(pivots, index_cols, value_cols, columns_cols)
             
             return {
                 'pivot_data': result['data'],
                 'column_headers': result['headers'],
                 'row_hierarchy': result['row_hierarchy'],
+                'sorted_columns': result['sorted_columns'],
+                'collapsible_groups': result['collapsible_groups'],
+                'rollup_calculations': result['rollup_calculations'],
                 'hierarchy_levels': index_cols,
                 'value_columns': value_cols,
                 'column_dimensions': columns_cols,
                 'excel_style': True,
+                'enhanced_features': True,
                 'config_used': {
                     'index_cols': index_cols,
                     'value_cols': value_cols,
@@ -203,27 +207,28 @@ class DynamicPivotSystem:
             }
             
         except Exception as e:
-            print(f"Excel-style pivot error: {e}")
+            print(f"Enhanced Excel-style pivot error: {e}")
             import traceback
             traceback.print_exc()
-            return {'error': f'Excel-style pivot generation failed: {str(e)}'}
+            return {'error': f'Enhanced Excel-style pivot generation failed: {str(e)}'}
     
-    def _process_excel_structure(self, pivots, index_cols, value_cols, columns_cols):
-        """Process pivots into Excel-style structure with proper headers and totals"""
+    def _process_enhanced_excel_structure(self, pivots, index_cols, value_cols, columns_cols):
+        """Process pivots into enhanced Excel-style structure with all features"""
         
         # Get the first pivot to understand structure
         main_pivot = list(pivots.values())[0]
         
-        # Build column header structure
-        headers = self._build_excel_headers(main_pivot, value_cols, columns_cols)
+        # Build enhanced column header structure with sorting and collapsibility
+        headers = self._build_enhanced_excel_headers(main_pivot, value_cols, columns_cols)
         
-        # Build row hierarchy with collapsible structure
-        row_hierarchy = self._build_row_hierarchy(main_pivot, index_cols)
+        # Build enhanced row hierarchy with roll-up calculations
+        row_hierarchy = self._build_enhanced_row_hierarchy(main_pivot, index_cols)
         
-        # Build data structure
+        # Build data structure with roll-up calculations
         data = {}
+        rollup_calculations = {}
         
-        # Process each row in the pivot
+        # Process each row in the pivot with enhanced features
         for row_key in main_pivot.index:
             if row_key == 'Grand Total':
                 continue
@@ -248,80 +253,62 @@ class DynamicPivotSystem:
                     value = pivot.loc[row_key, col_key]
                     row_data[data_key] = self._safe_convert_value(value)
                 
-                # Add subtotals for this value column
+                # Add subtotals for this value column (for collapsible groups)
                 if len(columns_cols) > 1:
-                    subtotals = self._calculate_subtotals(pivot, row_key, value_col, len(value_cols) > 1)
+                    subtotals = self._calculate_enhanced_subtotals(pivot, row_key, value_col, len(value_cols) > 1)
                     row_data.update(subtotals)
-                
-                # Add grand total for this row - only ONE grand total per row
-                if 'Grand Total' in pivot.columns and value_col == value_cols[0]:
-                    grand_total_key = "Grand_Total"  # Always use simple key for single grand total
-                    value = pivot.loc[row_key, 'Grand Total']
-                    row_data[grand_total_key] = self._safe_convert_value(value)
+            
+            # Add single Grand Total for this row
+            grand_total = self._calculate_single_grand_total(pivots, row_key, value_cols)
+            row_data['Grand_Total'] = grand_total
             
             # Store row data
             row_key_str = self._format_row_key(row_key)
             data[row_key_str] = row_data
         
-        # Add Grand Total row
+        # Calculate roll-up values for parent rows
+        rollup_calculations = self._calculate_rollup_data(data, row_hierarchy, headers['data_keys'])
+        
+        # Add enhanced Grand Total row (single, no duplicates)
         if 'Grand Total' in main_pivot.index:
-            grand_total_row = {}
-            
-            for value_col in value_cols:
-                pivot = pivots[value_col]
-                
-                for col_key in pivot.columns:
-                    if col_key == 'Grand Total':
-                        continue
-                    
-                    if len(value_cols) > 1:
-                        data_key = f"{value_col}_{self._format_column_key(col_key)}"
-                    else:
-                        data_key = self._format_column_key(col_key)
-                    
-                    value = pivot.loc['Grand Total', col_key]
-                    grand_total_row[data_key] = self._safe_convert_value(value)
-                
-                # Add subtotals for grand total row
-                if len(columns_cols) > 1:
-                    subtotals = self._calculate_subtotals(pivot, 'Grand Total', value_col, len(value_cols) > 1)
-                    grand_total_row.update(subtotals)
-                
-                # Add overall grand total - only ONE grand total
-                if 'Grand Total' in pivot.columns and value_col == value_cols[0]:
-                    grand_total_key = "Grand_Total"  # Always use simple key for single grand total
-                    value = pivot.loc['Grand Total', 'Grand Total']
-                    grand_total_row[grand_total_key] = self._safe_convert_value(value)
-            
+            grand_total_row = self._build_enhanced_grand_total_row(pivots, value_cols, headers['data_keys'])
             data['Grand_Total'] = grand_total_row
         
         return {
             'data': data,
             'headers': headers,
-            'row_hierarchy': row_hierarchy
+            'row_hierarchy': row_hierarchy,
+            'sorted_columns': True,
+            'collapsible_groups': self._get_collapsible_groups(headers),
+            'rollup_calculations': rollup_calculations
         }
     
-    def _build_excel_headers(self, pivot, value_cols, columns_cols):
-        """Build Excel-style hierarchical column headers"""
+    def _build_enhanced_excel_headers(self, pivot, value_cols, columns_cols):
+        """Build enhanced Excel-style hierarchical column headers with sorting and collapsibility"""
         headers = {
             'levels': [],
             'structure': {},
-            'data_keys': []
+            'data_keys': [],
+            'collapsible_groups': {},
+            'sorted': True
         }
         
-        # Get unique values for each column dimension
+        # Get unique values for each column dimension and sort them
         if len(columns_cols) == 1:
             # Single column dimension
             col_values = [str(c) for c in pivot.columns if str(c) != 'Grand Total']
+            col_values = sorted(col_values)  # Sort columns
+            
             headers['levels'] = [columns_cols[0]]
             headers['structure'] = {
-                'main_groups': sorted(col_values),
+                'main_groups': col_values,
                 'sub_groups': {},
-                'has_subtotals': False
+                'has_subtotals': False,
+                'is_collapsible': True
             }
             
-            # Build data keys
-            for col_val in sorted(col_values):
+            # Build data keys for sorted columns
+            for col_val in col_values:
                 if len(value_cols) > 1:
                     for value_col in value_cols:
                         headers['data_keys'].append(f"{value_col}_{col_val}")
@@ -351,19 +338,29 @@ class DynamicPivotSystem:
                     if main_col not in main_groups:
                         main_groups[main_col] = set()
             
-            # Convert sets to sorted lists
+            # Convert sets to sorted lists for consistent ordering
             for main_col in main_groups:
                 main_groups[main_col] = sorted(list(main_groups[main_col]))
             
+            # Sort main groups as well
+            sorted_main_groups = sorted(main_groups.keys())
+            
             headers['structure'] = {
-                'main_groups': sorted(main_groups.keys()),
+                'main_groups': sorted_main_groups,
                 'sub_groups': main_groups,
-                'has_subtotals': any(len(subs) > 1 for subs in main_groups.values())
+                'has_subtotals': any(len(subs) > 1 for subs in main_groups.values()),
+                'is_collapsible': True
             }
             
-            # Build data keys
-            for main_col in sorted(main_groups.keys()):
-                sub_cols = main_groups[main_col]
+            # Build data keys with sorted columns
+            for main_col in sorted_main_groups:
+                sub_cols = sorted(main_groups[main_col])
+                headers['collapsible_groups'][main_col] = {
+                    'sub_columns': sub_cols,
+                    'collapsed': False,
+                    'has_total': len(sub_cols) > 1
+                }
+                
                 if sub_cols:
                     for sub_col in sub_cols:
                         if len(value_cols) > 1:
@@ -372,7 +369,7 @@ class DynamicPivotSystem:
                         else:
                             headers['data_keys'].append(f"{main_col}_{sub_col}")
                     
-                    # Add subtotal if multiple sub-columns
+                    # Add subtotal if multiple sub-columns (for collapsibility)
                     if len(sub_cols) > 1:
                         if len(value_cols) > 1:
                             for value_col in value_cols:
@@ -386,13 +383,13 @@ class DynamicPivotSystem:
                     else:
                         headers['data_keys'].append(main_col)
         
-        # Add only ONE Grand Total at the end
+        # Add single Grand Total at the end (no duplicates)
         headers['data_keys'].append("Grand_Total")
         
         return headers
     
-    def _build_row_hierarchy(self, pivot, index_cols):
-        """Build hierarchical row structure for collapsible rows"""
+    def _build_enhanced_row_hierarchy(self, pivot, index_cols):
+        """Build enhanced hierarchical row structure with roll-up support"""
         hierarchy = {}
         
         for row_key in pivot.index:
@@ -404,7 +401,7 @@ class DynamicPivotSystem:
             else:
                 levels = [str(row_key)]
             
-            # Build hierarchy tree
+            # Build hierarchy tree with enhanced features
             current = hierarchy
             for i, level in enumerate(levels):
                 if level not in current:
@@ -413,7 +410,11 @@ class DynamicPivotSystem:
                         'type': index_cols[i] if i < len(index_cols) else 'item',
                         'children': {},
                         'is_leaf': i == len(levels) - 1,
-                        'path': levels[:i+1]
+                        'path': levels[:i+1],
+                        'has_data': i == len(levels) - 1,
+                        'rollup_data': {},
+                        'expanded': i < 2,  # Auto-expand first 2 levels
+                        'has_rollup': i < len(levels) - 1
                     }
                 
                 if i < len(levels) - 1:
@@ -421,26 +422,8 @@ class DynamicPivotSystem:
         
         return hierarchy
     
-    def _safe_convert_value(self, value):
-        """Safely convert pandas value to Python int, handling Series and NaN"""
-        try:
-            # Handle pandas Series by getting the first item
-            if hasattr(value, 'iloc'):
-                value = value.iloc[0] if len(value) > 0 else 0
-            elif hasattr(value, 'item'):
-                value = value.item()
-            
-            # Check for NaN using pandas method
-            if pd.isna(value):
-                return 0
-            
-            # Convert to int if not zero
-            return int(float(value)) if value != 0 else 0
-        except (ValueError, TypeError, AttributeError):
-            return 0
-    
-    def _calculate_subtotals(self, pivot, row_key, value_col, include_value_prefix):
-        """Calculate subtotals for main column groups"""
+    def _calculate_enhanced_subtotals(self, pivot, row_key, value_col, include_value_prefix):
+        """Calculate enhanced subtotals for collapsible column groups"""
         subtotals = {}
         
         # Group columns by main category
@@ -476,6 +459,157 @@ class DynamicPivotSystem:
                     subtotals[subtotal_key] = subtotal
         
         return subtotals
+    
+    def _calculate_single_grand_total(self, pivots, row_key, value_cols):
+        """Calculate single grand total across all value columns to avoid duplicates"""
+        total = 0
+        has_value = False
+        
+        for value_col in value_cols:
+            pivot = pivots[value_col]
+            if 'Grand Total' in pivot.columns:
+                try:
+                    value = pivot.loc[row_key, 'Grand Total']
+                    converted_value = self._safe_convert_value(value)
+                    if converted_value != 0:
+                        total += converted_value
+                        has_value = True
+                except (KeyError, IndexError):
+                    continue
+        
+        return total if has_value else 0
+    
+    def _calculate_rollup_data(self, data, hierarchy, data_keys):
+        """Calculate roll-up totals for parent rows from child data"""
+        rollup_data = {}
+        
+        def calculate_parent_totals(node, path):
+            if not node.get('children'):
+                return  # Leaf node, no children to roll up
+            
+            parent_key = self._format_row_key_from_path(path)
+            if parent_key not in rollup_data:
+                rollup_data[parent_key] = {}
+            
+            # Calculate totals from all children
+            for data_key in data_keys:
+                if data_key == 'Grand_Total':
+                    continue
+                    
+                total = 0
+                has_value = False
+                
+                # Sum values from all child nodes
+                for child_name, child_node in node['children'].items():
+                    child_path = path + [child_name]
+                    child_key = self._format_row_key_from_path(child_path)
+                    
+                    if child_node.get('is_leaf') and child_key in data:
+                        # Direct child data
+                        if data_key in data[child_key]:
+                            value = data[child_key][data_key]
+                            if value and value != 0:
+                                total += value
+                                has_value = True
+                    else:
+                        # Recursive for nested children
+                        calculate_parent_totals(child_node, child_path)
+                        nested_key = self._format_row_key_from_path(child_path)
+                        if nested_key in rollup_data and data_key in rollup_data[nested_key]:
+                            value = rollup_data[nested_key][data_key]
+                            if value and value != 0:
+                                total += value
+                                has_value = True
+                
+                if has_value:
+                    rollup_data[parent_key][data_key] = total
+            
+            # Calculate grand total for this parent
+            grand_total = 0
+            for key, value in rollup_data[parent_key].items():
+                if key != 'Grand_Total' and value:
+                    grand_total += value
+            if grand_total > 0:
+                rollup_data[parent_key]['Grand_Total'] = grand_total
+        
+        # Process hierarchy to calculate roll-ups
+        for name, node in hierarchy.items():
+            calculate_parent_totals(node, [name])
+        
+        return rollup_data
+    
+    def _build_enhanced_grand_total_row(self, pivots, value_cols, data_keys):
+        """Build single enhanced grand total row without duplicates"""
+        grand_total_row = {}
+        
+        for data_key in data_keys:
+            if data_key == 'Grand_Total':
+                # Calculate overall grand total
+                overall_total = 0
+                for value_col in value_cols:
+                    pivot = pivots[value_col]
+                    if 'Grand Total' in pivot.columns and 'Grand Total' in pivot.index:
+                        value = pivot.loc['Grand Total', 'Grand Total']
+                        overall_total += self._safe_convert_value(value)
+                grand_total_row[data_key] = overall_total
+            else:
+                # Calculate column totals
+                total = 0
+                has_value = False
+                
+                for value_col in value_cols:
+                    pivot = pivots[value_col]
+                    
+                    # Find matching column in pivot
+                    for col in pivot.columns:
+                        if col == 'Grand Total':
+                            continue
+                        
+                        col_key = self._format_column_key(col)
+                        if len(value_cols) > 1:
+                            expected_key = f"{value_col}_{col_key}"
+                        else:
+                            expected_key = col_key
+                        
+                        if expected_key == data_key and 'Grand Total' in pivot.index:
+                            value = pivot.loc['Grand Total', col]
+                            converted_value = self._safe_convert_value(value)
+                            if converted_value != 0:
+                                total += converted_value
+                                has_value = True
+                            break
+                
+                grand_total_row[data_key] = total if has_value else 0
+        
+        return grand_total_row
+    
+    def _get_collapsible_groups(self, headers):
+        """Get information about collapsible column groups"""
+        return headers.get('collapsible_groups', {})
+    
+    def _format_row_key_from_path(self, path):
+        """Format row key from path array"""
+        if not path or len(path) == 0:
+            return ''
+        return f"({', '.join(repr(str(level)) for level in path)})"
+    
+    def _safe_convert_value(self, value):
+        """Safely convert pandas value to Python int, handling Series and NaN"""
+        try:
+            # Handle pandas Series by getting the first item
+            if hasattr(value, 'iloc'):
+                value = value.iloc[0] if len(value) > 0 else 0
+            elif hasattr(value, 'item'):
+                value = value.item()
+            
+            # Check for NaN using pandas method
+            if pd.isna(value):
+                return 0
+            
+            # Convert to int if not zero
+            return int(float(value)) if value != 0 else 0
+        except (ValueError, TypeError, AttributeError):
+            return 0
     
     def _format_column_key(self, col_key):
         """Format column key for data storage"""
@@ -531,10 +665,10 @@ def get_dimensions():
 
 @app.route('/api/pivot', methods=['POST'])
 def get_pivot():
-    """Get filtered and pivoted data with Excel-style hierarchical columns"""
+    """Get filtered and pivoted data with enhanced Excel-style features"""
     try:
         data = request.get_json()
-        print(f"Received pivot request: {data}")
+        print(f"Received enhanced pivot request: {data}")
         
         filter_column = data.get('filter_column')
         filter_value = data.get('filter_value')
@@ -552,19 +686,19 @@ def get_pivot():
             pivot_config['columns_cols'] = [pivot_config['columns_col']]
         
         print(f"Filtering by {filter_column} = {filter_value}")
-        print(f"Pivot config: {pivot_config}")
+        print(f"Enhanced pivot config: {pivot_config}")
         
         result = pivot_system.filter_and_pivot(filter_column, filter_value, pivot_config)
         
         if 'error' in result:
-            print(f"Pivot error: {result['error']}")
+            print(f"Enhanced pivot error: {result['error']}")
             return jsonify(result), 400
         
-        print(f"Excel-style pivot successful.")
+        print(f"Enhanced Excel-style pivot successful with all features.")
         return jsonify(result)
         
     except Exception as e:
-        error_msg = f'Server error in pivot generation: {str(e)}'
+        error_msg = f'Server error in enhanced pivot generation: {str(e)}'
         print(error_msg)
         import traceback
         traceback.print_exc()
@@ -632,7 +766,11 @@ def get_fact_columns():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("🚀 Enhanced Dynamic Pivot System Started with Excel-Style Headers!")
+    print("🚀 Complete Enhanced Dynamic Pivot System Started!")
+    print("✅ Collapsible column groups")
+    print("✅ Roll-up calculations for parent rows")
+    print("✅ Sorted columns for better organization")
+    print("✅ Single grand total column (no duplicates)")
     print(f"📊 Dimension table: {pivot_system.dimension_df.shape}")
     print(f"📈 Fact table: {pivot_system.fact_df.shape}")
     print("🌐 Visit http://localhost:5000")

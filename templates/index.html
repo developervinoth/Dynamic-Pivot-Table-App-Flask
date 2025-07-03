@@ -112,18 +112,6 @@
             font-weight: 600;
             color: #2c3e50;
             border-bottom: 1px solid #d5dbdb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .field-search-input {
-            width: 80px;
-            padding: 2px 4px;
-            font-size: 10px;
-            border: 1px solid #bdc3c7;
-            border-radius: 2px;
-            font-family: 'Montserrat', sans-serif;
         }
 
         .field-list-content {
@@ -551,7 +539,7 @@
             transform: rotate(90deg);
         }
 
-        /* Enhanced Excel-Style Pivot Table */
+        /* Enhanced Excel-Style Pivot Table with collapsible columns */
         .excel-pivot-table {
             width: 100%;
             border-collapse: collapse;
@@ -584,11 +572,27 @@
         .excel-pivot-table .header-cell.main-group {
             font-size: 12px;
             border-right: 2px solid rgba(255,255,255,0.4);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .excel-pivot-table .header-cell.main-group:hover {
+            background: #1a252f;
+        }
+
+        .excel-pivot-table .header-cell.main-group .collapse-btn {
+            margin-left: 5px;
+            font-size: 10px;
+            color: #3498db;
         }
 
         .excel-pivot-table .header-cell.sub-group {
             font-size: 10px;
             font-weight: 500;
+        }
+
+        .excel-pivot-table .header-cell.sub-group.collapsed {
+            display: none;
         }
 
         .excel-pivot-table .header-cell.row-header {
@@ -612,6 +616,10 @@
         }
 
         .excel-pivot-table .data-row.collapsed {
+            display: none;
+        }
+
+        .excel-pivot-table .data-row.duplicate-total {
             display: none;
         }
 
@@ -696,6 +704,10 @@
 
         .excel-pivot-table .data-cell:hover {
             background: #f8f9fa;
+        }
+
+        .excel-pivot-table .data-cell.collapsed {
+            display: none;
         }
 
         .excel-pivot-table .data-cell.subtotal {
@@ -1016,6 +1028,7 @@
             this.columns = [];
             this.loadingTimers = {};
             this.expandedPivotRows = {};
+            this.collapsedColumnGroups = {};  // Track collapsed column groups
             
             // Pagination
             this.currentPage = 1;
@@ -1122,7 +1135,6 @@
                 
                 self.renderFieldList();
                 self.setDefaultConfiguration();
-                self.setupFieldSearch(); // Add this line
             })
             .catch(function(error) {
                 console.error('Error loading pivot fields:', error);
@@ -1135,18 +1147,12 @@
                 });
                 self.renderFieldList();
                 self.setDefaultConfiguration();
-                self.setupFieldSearch(); // Add this line
             });
         };
 
         ProfessionalPivotSystem.prototype.renderFieldList = function() {
             var self = this;
             var fieldList = document.getElementById('fieldList');
-            if (!fieldList) {
-                console.error('Field list container not found');
-                return;
-            }
-            
             fieldList.innerHTML = '';
             
             this.availableFields.forEach(function(field) {
@@ -1171,62 +1177,24 @@
                 fieldList.appendChild(fieldElement);
             });
             
-            // Ensure the field list header has the search input
-            var fieldListHeader = document.querySelector('.field-list-header');
-            if (fieldListHeader) {
-                // Check if search input already exists
-                var existingSearch = fieldListHeader.querySelector('#fieldSearch');
-                if (!existingSearch) {
-                    console.log('Search input not found, adding it to header');
-                    fieldListHeader.innerHTML = '<span>Available Fields</span><input type="text" id="fieldSearch" class="field-search-input" placeholder="Search...">';
-                }
-            }
+            // Initialize search functionality
+            this.initializeFieldSearch();
         };
 
-        ProfessionalPivotSystem.prototype.setupFieldSearch = function() {
+        ProfessionalPivotSystem.prototype.initializeFieldSearch = function() {
             var self = this;
-            console.log('Setting up field search...');
-            
-            // Try to find the search input
             var fieldSearchInput = document.getElementById('fieldSearch');
-            console.log('Field search input found:', fieldSearchInput);
             
             if (fieldSearchInput) {
-                if (!fieldSearchInput.hasAttribute('data-listener-added')) {
-                    fieldSearchInput.addEventListener('input', function(e) {
-                        console.log('Search input changed:', e.target.value);
-                        self.filterFieldList(e.target.value.toLowerCase());
-                    });
-                    fieldSearchInput.setAttribute('data-listener-added', 'true');
-                    console.log('Event listener added to field search');
-                } else {
-                    console.log('Event listener already exists');
-                }
-            } else {
-                console.error('Field search input not found! DOM structure may be incorrect.');
-                // Let's try to add it manually if it doesn't exist
-                var fieldListHeader = document.querySelector('.field-list-header');
-                if (fieldListHeader) {
-                    console.log('Found field list header, adding search input manually');
-                    fieldListHeader.innerHTML = '<span>Available Fields</span><input type="text" id="fieldSearch" class="field-search-input" placeholder="Search...">';
-                    // Try again
-                    setTimeout(function() {
-                        self.setupFieldSearch();
-                    }, 100);
-                }
+                // Remove existing listeners
+                var newInput = fieldSearchInput.cloneNode(true);
+                fieldSearchInput.parentNode.replaceChild(newInput, fieldSearchInput);
+                
+                // Add new listener
+                newInput.addEventListener('input', function(e) {
+                    self.filterFieldList(e.target.value.toLowerCase());
+                });
             }
-        };
-
-        ProfessionalPivotSystem.prototype.filterFieldList = function(searchTerm) {
-            var fieldItems = document.querySelectorAll('#fieldList .field-item');
-            fieldItems.forEach(function(item) {
-                var fieldName = item.dataset.fieldName.toLowerCase();
-                if (fieldName.indexOf(searchTerm) !== -1 || searchTerm === '') {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
         };
 
         ProfessionalPivotSystem.prototype.setDefaultConfiguration = function() {
@@ -1253,11 +1221,6 @@
             if (content) {
                 if (this.builderVisible) {
                     content.classList.add('show');
-                    // Ensure search field is set up when builder opens
-                    setTimeout(function() {
-                        var self = pivotSystem;
-                        self.setupFieldSearch();
-                    }, 200);
                 } else {
                     content.classList.remove('show');
                 }
@@ -1554,8 +1517,8 @@
             
             this.dimensionData.columns.forEach(function(col) {
                 var sortClass = self.dimensionSort.column === col ? 'sort-' + self.dimensionSort.direction : '';
-                html += '<th onclick="pivotSystem.sortDimensionTable(\'' + col + '\')" class="' + sortClass + '">' +
-                        col + '<span class="sort-icon"></span></th>';
+                html += '<th onclick="pivotSystem.sortDimensionTable(\'' + self.escapeHtml(col) + '\')" class="' + sortClass + '">' +
+                        self.escapeHtml(col) + '<span class="sort-icon"></span></th>';
             });
             
             html += '</tr></thead><tbody>';
@@ -1568,7 +1531,7 @@
                 
                 self.dimensionData.columns.forEach(function(col, colIndex) {
                     var value = row[col];
-                    var displayValue = typeof value === 'number' ? value.toLocaleString() : value;
+                    var displayValue = typeof value === 'number' ? value.toLocaleString() : self.escapeHtml(String(value || ''));
                     html += '<td>';
                     if (colIndex === 0) {
                         html += '<span class="expand-indicator">' + (isExpanded ? '▼' : '▶') + '</span>';
@@ -1596,7 +1559,10 @@
                 html = '<div class="no-data">No data found matching current filters.</div>';
             }
 
-            document.getElementById('dimensionTableContainer').innerHTML = html;
+            var container = document.getElementById('dimensionTableContainer');
+            if (container) {
+                container.innerHTML = html;
+            }
 
             this.expandedRows.forEach(function(rowIndex) {
                 var rowInCurrentPage = pageData.some(function(row) {
@@ -1727,6 +1693,10 @@
                 this.expandedPivotRows[rowIndex] = new Set();
             }
             
+            if (!this.collapsedColumnGroups) {
+                this.collapsedColumnGroups = {};
+            }
+            
             // Build Excel-style table with proper headers and collapsible rows
             var html = this.buildExcelStyleTable(pivotResult, rowIndex);
             contentElement.innerHTML = html;
@@ -1757,6 +1727,7 @@
         };
 
         ProfessionalPivotSystem.prototype.buildExcelHeaders = function(headers) {
+            var self = this;
             var html = '<thead>';
             
             if (headers.structure && headers.structure.has_subtotals) {
@@ -1764,14 +1735,19 @@
                 html += '<tr class="header-row-1">';
                 html += '<th class="header-cell row-header" rowspan="2">Items</th>';
                 
-                // Main group headers
+                // Main group headers with collapse functionality
                 headers.structure.main_groups.forEach(function(mainGroup) {
                     var subGroups = headers.structure.sub_groups[mainGroup] || [];
                     var colspan = subGroups.length > 1 ? subGroups.length + 1 : subGroups.length || 1;
-                    html += '<th class="header-cell main-group" colspan="' + colspan + '">' + mainGroup + '</th>';
+                    var isCollapsed = self.collapsedColumnGroups[mainGroup] || false;
+                    var escapedGroup = self.escapeHtml(mainGroup);
+                    
+                    html += '<th class="header-cell main-group" colspan="' + colspan + '" onclick="pivotSystem.toggleColumnGroup(\'' + self.escapeHtml(mainGroup) + '\')">';
+                    html += escapedGroup;
+                    html += '<span class="collapse-btn">' + (isCollapsed ? '▶' : '▼') + '</span>';
+                    html += '</th>';
                 });
                 
-                // Single Grand Total header
                 html += '<th class="header-cell grand-total" rowspan="2">Grand Total</th>';
                 html += '</tr>';
                 
@@ -1779,15 +1755,20 @@
                 html += '<tr class="header-row-2">';
                 headers.structure.main_groups.forEach(function(mainGroup) {
                     var subGroups = headers.structure.sub_groups[mainGroup] || [];
+                    var isCollapsed = self.collapsedColumnGroups[mainGroup] || false;
+                    
                     if (subGroups.length > 0) {
                         subGroups.forEach(function(subGroup) {
-                            html += '<th class="header-cell sub-group">' + subGroup + '</th>';
+                            var cellClass = 'header-cell sub-group' + (isCollapsed ? ' collapsed' : '');
+                            html += '<th class="' + cellClass + '">' + self.escapeHtml(subGroup) + '</th>';
                         });
                         if (subGroups.length > 1) {
-                            html += '<th class="header-cell sub-group">Total</th>';
+                            var cellClass = 'header-cell sub-group' + (isCollapsed ? ' collapsed' : '');
+                            html += '<th class="' + cellClass + '">Total</th>';
                         }
                     } else {
-                        html += '<th class="header-cell sub-group">Total</th>';
+                        var cellClass = 'header-cell sub-group' + (isCollapsed ? ' collapsed' : '');
+                        html += '<th class="' + cellClass + '">Total</th>';
                     }
                 });
                 html += '</tr>';
@@ -1798,11 +1779,10 @@
                 
                 if (headers.structure && headers.structure.main_groups) {
                     headers.structure.main_groups.forEach(function(group) {
-                        html += '<th class="header-cell">' + group + '</th>';
+                        html += '<th class="header-cell">' + self.escapeHtml(group) + '</th>';
                     });
                 }
                 
-                // Single Grand Total header
                 html += '<th class="header-cell grand-total">Grand Total</th>';
                 html += '</tr>';
             }
@@ -1821,8 +1801,14 @@
                 var rowKey = self.buildRowKey(item.path);
                 var isExpanded = self.expandedPivotRows[tableIndex].has(rowKey);
                 
+                // Skip duplicate Grand Total rows
+                if (itemName === 'Grand Total' || (item.path && item.path[item.path.length - 1] === 'Grand Total')) {
+                    return;
+                }
+                
                 // Main row
-                html += '<tr class="data-row level-' + level + '">';
+                var rowClass = 'data-row level-' + level;
+                html += '<tr class="' + rowClass + '">';
                 
                 // Row header with expand/collapse button
                 var indentPadding = level * 20 + 10;
@@ -1834,38 +1820,39 @@
                     html += '</button>';
                 }
                 
-                html += '<span>' + itemName + '</span>';
+                html += '<span>' + self.escapeHtml(itemName) + '</span>';
                 html += '</td>';
                 
-                // Data cells
+                // Data cells with roll-up calculations
                 var rowData = pivotData[self.formatRowKeyForData(item.path)];
-                if (rowData) {
-                    headers.data_keys.forEach(function(dataKey) {
-                        var value = rowData[dataKey] || 0;
-                        var cellClass = 'data-cell';
-                        
-                        if (dataKey.indexOf('_Total') !== -1) {
-                            cellClass += ' subtotal';
-                        }
-                        if (dataKey.indexOf('Grand_Total') !== -1) {
-                            cellClass += ' grand-total';
-                        }
-                        if (value === 0 || value === null || value === undefined) {
-                            cellClass += ' null';
-                        } else if (value > 0) {
-                            cellClass += ' positive';
-                        }
-                        
-                        html += '<td class="' + cellClass + '">';
-                        html += self.formatCellValue(value);
-                        html += '</td>';
-                    });
-                } else {
-                    // Empty data cells
-                    headers.data_keys.forEach(function() {
-                        html += '<td class="data-cell null">-</td>';
-                    });
-                }
+                var calculatedData = self.calculateRowData(item, pivotData, headers.data_keys);
+                
+                headers.data_keys.forEach(function(dataKey) {
+                    var value = (rowData && rowData[dataKey] !== undefined) ? rowData[dataKey] : calculatedData[dataKey] || 0;
+                    var cellClass = 'data-cell';
+                    
+                    // Check if column group is collapsed
+                    var isColumnCollapsed = self.isColumnCollapsed(dataKey, headers);
+                    if (isColumnCollapsed) {
+                        cellClass += ' collapsed';
+                    }
+                    
+                    if (dataKey.indexOf('_Total') !== -1) {
+                        cellClass += ' subtotal';
+                    }
+                    if (dataKey.indexOf('Grand_Total') !== -1) {
+                        cellClass += ' grand-total';
+                    }
+                    if (value === 0 || value === null || value === undefined) {
+                        cellClass += ' null';
+                    } else if (value > 0) {
+                        cellClass += ' positive';
+                    }
+                    
+                    html += '<td class="' + cellClass + '">';
+                    html += self.formatCellValue(value);
+                    html += '</td>';
+                });
                 
                 html += '</tr>';
                 
@@ -1878,6 +1865,98 @@
             return html;
         };
 
+        ProfessionalPivotSystem.prototype.calculateRowData = function(item, pivotData, dataKeys) {
+            var self = this;
+            var calculatedData = {};
+            
+            // If this is a leaf node, return empty (use actual data)
+            if (!item.children || Object.keys(item.children).length === 0) {
+                return calculatedData;
+            }
+            
+            // Calculate roll-up values from children
+            dataKeys.forEach(function(dataKey) {
+                var total = 0;
+                var hasValue = false;
+                
+                self.getAllChildPaths(item.children).forEach(function(childPath) {
+                    var childKey = self.formatRowKeyForData(childPath);
+                    if (pivotData[childKey] && pivotData[childKey][dataKey] !== undefined) {
+                        var childValue = pivotData[childKey][dataKey];
+                        if (childValue !== null && childValue !== undefined && childValue !== 0) {
+                            total += childValue;
+                            hasValue = true;
+                        }
+                    }
+                });
+                
+                calculatedData[dataKey] = hasValue ? total : 0;
+            });
+            
+            return calculatedData;
+        };
+
+        ProfessionalPivotSystem.prototype.getAllChildPaths = function(children) {
+            var paths = [];
+            
+            for (var childName in children) {
+                var child = children[childName];
+                if (child.is_leaf) {
+                    paths.push(child.path);
+                } else if (child.children) {
+                    paths = paths.concat(this.getAllChildPaths(child.children));
+                }
+            }
+            
+            return paths;
+        };
+
+        ProfessionalPivotSystem.prototype.isColumnCollapsed = function(dataKey, headers) {
+            if (!headers.structure || !headers.structure.has_subtotals) {
+                return false;
+            }
+            
+            // Check if this data key belongs to a collapsed column group
+            for (var mainGroup in this.collapsedColumnGroups) {
+                if (this.collapsedColumnGroups[mainGroup] && dataKey.indexOf(mainGroup) !== -1 && dataKey !== 'Grand_Total') {
+                    return true;
+                }
+            }
+            
+            return false;
+        };
+
+        ProfessionalPivotSystem.prototype.toggleColumnGroup = function(mainGroup) {
+            if (!this.collapsedColumnGroups) {
+                this.collapsedColumnGroups = {};
+            }
+            
+            // Properly decode the group name
+            var decodedGroup = this.unescapeHtml(mainGroup);
+            this.collapsedColumnGroups[decodedGroup] = !this.collapsedColumnGroups[decodedGroup];
+            
+            // Re-render all currently visible pivot tables
+            for (var rowIndex in this.pivotData) {
+                if (this.expandedRows.has(parseInt(rowIndex))) {
+                    this.renderEnhancedExcelPivotTable(parseInt(rowIndex));
+                }
+            }
+        };
+
+        ProfessionalPivotSystem.prototype.unescapeHtml = function(text) {
+            if (typeof text !== 'string') {
+                return text;
+            }
+            var map = {
+                '&amp;': '&',
+                '&lt;': '<',
+                '&gt;': '>',
+                '&quot;': '"',
+                '&#039;': "'"
+            };
+            return text.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, function(m) { return map[m]; });
+        };
+
         ProfessionalPivotSystem.prototype.buildGrandTotalRow = function(grandTotalData, headers) {
             var self = this;
             var html = '<tr class="grand-total-row">';
@@ -1886,7 +1965,15 @@
             
             headers.data_keys.forEach(function(dataKey) {
                 var value = grandTotalData[dataKey] || 0;
-                html += '<td class="data-cell">';
+                var cellClass = 'data-cell';
+                
+                // Check if column group is collapsed
+                var isColumnCollapsed = self.isColumnCollapsed(dataKey, headers);
+                if (isColumnCollapsed) {
+                    cellClass += ' collapsed';
+                }
+                
+                html += '<td class="' + cellClass + '">';
                 html += self.formatCellValue(value);
                 html += '</td>';
             });
@@ -1904,11 +1991,28 @@
             return "('" + path.join("', '") + "')";
         };
 
+        ProfessionalPivotSystem.prototype.escapeHtml = function(text) {
+            if (typeof text !== 'string') {
+                return text;
+            }
+            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        };
+
         ProfessionalPivotSystem.prototype.formatCellValue = function(value) {
             if (value === null || value === undefined || value === 0) {
                 return '-';
             }
-            return Number(value).toLocaleString();
+            if (typeof value === 'number') {
+                return Number(value).toLocaleString();
+            }
+            return this.escapeHtml(String(value));
         };
 
         ProfessionalPivotSystem.prototype.togglePivotRow = function(tableIndex, rowKey) {
