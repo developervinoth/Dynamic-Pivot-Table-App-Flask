@@ -116,13 +116,20 @@ body {
 .filter-clear-btn:hover { background: #c0392b; }
 .filter-dropdown {
     width: 100%; max-height: 120px; overflow-y: auto; border: 1px solid #bdc3c7; border-radius: 3px;
-    background: white; font-size: 10px;
+    background: white; font-size: 10px; position: relative;
 }
+.filter-search {
+    width: 100%; padding: 4px 6px; border: none; border-bottom: 1px solid #ecf0f1; 
+    font-size: 9px; background: #f8f9fa; font-family: inherit;
+    position: sticky; top: 0; z-index: 10;
+}
+.filter-search:focus { outline: 1px solid #3498db; background: white; }
 .filter-option {
     padding: 4px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px;
     border-bottom: 1px solid #ecf0f1;
 }
 .filter-option:hover { background: #e8f4fd; }
+.filter-option.hidden { display: none; }
 .filter-option input[type="checkbox"] { margin: 0; width: 12px; height: 12px; }
 .filter-summary {
     font-size: 9px; color: #7f8c8d; margin-top: 2px; font-style: italic;
@@ -821,7 +828,20 @@ body {
                 })
                 .then(function(data) {
                     if (!data.error) {
-                        self.availableColumnValues[column] = data.filter_values || [];
+                        // Sort the values before storing
+                        var values = data.filter_values || [];
+                        values.sort(function(a, b) {
+                            // Try numeric sort first
+                            var numA = parseFloat(a);
+                            var numB = parseFloat(b);
+                            if (!isNaN(numA) && !isNaN(numB)) {
+                                return numA - numB;
+                            }
+                            // Fall back to string sort
+                            return String(a).localeCompare(String(b));
+                        });
+                        
+                        self.availableColumnValues[column] = values;
                         self.renderFilterGrid();
                     }
                 })
@@ -873,17 +893,25 @@ body {
             
             var html = '';
             
+            // Add search input
+            html += '<input type="text" class="filter-search" placeholder="Search values..." ' +
+                    'oninput="pivotSystem.searchFilterOptions(\'' + column + '\', this.value)" ' +
+                    'onclick="event.stopPropagation()">';
+            
             // Select All option
             var allSelected = excludedValues.length === 0;
-            html += '<div class="filter-option" onclick="pivotSystem.toggleFilterAll(\'' + column + '\')">' +
+            html += '<div class="filter-option select-all-option" onclick="pivotSystem.toggleFilterAll(\'' + column + '\')">' +
                     '<input type="checkbox" ' + (allSelected ? 'checked' : '') + ' readonly> ' +
-                    '<span>Select All</span></div>';
+                    '<span><strong>Select All</strong></span></div>';
             
-            // Individual options
-            options.forEach(function(value) {
+            // Individual options (already sorted from loadColumnFilterValues)
+            options.forEach(function(value, index) {
                 var isExcluded = excludedValues.includes(value);
                 var isSelected = !isExcluded;
-                html += '<div class="filter-option" onclick="pivotSystem.toggleFilterValue(\'' + column + '\', \'' + 
+                var valueId = column + '_option_' + index;
+                
+                html += '<div class="filter-option value-option" data-value="' + 
+                        String(value).toLowerCase() + '" onclick="pivotSystem.toggleFilterValue(\'' + column + '\', \'' + 
                         String(value).replace(/'/g, "\\'") + '\')">' +
                         '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' readonly> ' +
                         '<span>' + value + '</span></div>';
@@ -922,10 +950,56 @@ body {
             this.applyColumnFilters();
         };
 
-        ProfessionalPivotSystem.prototype.clearColumnFilter = function(column) {
-            this.columnFilters[column] = [];
-            this.renderFilterGrid();
-            this.applyColumnFilters();
+        ProfessionalPivotSystem.prototype.searchFilterOptions = function(column, searchTerm) {
+            var dropdown = document.getElementById('filter-' + column.replace(/\s+/g, '_'));
+            if (!dropdown) return;
+            
+            var searchLower = searchTerm.toLowerCase();
+            var valueOptions = dropdown.querySelectorAll('.value-option');
+            var visibleCount = 0;
+            
+            valueOptions.forEach(function(option) {
+                var value = option.getAttribute('data-value');
+                if (value && value.indexOf(searchLower) !== -1) {
+                    option.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    option.classList.add('hidden');
+                }
+            });
+            
+            // Update the summary to show filtered count
+            this.updateFilterSummary(column, visibleCount);
+        };
+
+        ProfessionalPivotSystem.prototype.updateFilterSummary = function(column, visibleCount) {
+            var filterItem = document.querySelector('[data-column="' + column + '"]');
+            if (!filterItem) return;
+            
+            var summaryElement = filterItem.querySelector('.filter-summary');
+            if (!summaryElement) return;
+            
+            var selectedValues = this.columnFilters[column] || [];
+            var totalValues = this.availableColumnValues[column] ? this.availableColumnValues[column].length : 0;
+            var selectedCount = selectedValues.length;
+            
+            var summaryText;
+            if (visibleCount !== undefined && visibleCount < totalValues) {
+                // Show filtered view
+                summaryText = 'Showing ' + visibleCount + ' of ' + totalValues + ' values';
+                if (selectedCount === 0) {
+                    summaryText += ' (All selected)';
+                } else {
+                    var includedCount = totalValues - selectedCount;
+                    summaryText += ' (' + includedCount + ' selected)';
+                }
+            } else {
+                // Show normal view
+                summaryText = selectedCount === 0 ? 'All selected' : 
+                            selectedCount + ' of ' + totalValues + ' selected';
+            }
+            
+            summaryElement.textContent = summaryText;
         };
 
         ProfessionalPivotSystem.prototype.applyColumnFilters = function() {
