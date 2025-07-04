@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced Scrollable Pivot System - Excel Style</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Using system fonts instead of Google Fonts to avoid extension blocking -->
     <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: #f5f7fa;
     min-height: 100vh;
     font-size: 14px;
@@ -30,7 +30,7 @@ body {
 }
 .toggle-builder {
     background: #3498db; border: none; color: white; padding: 4px 8px; border-radius: 3px;
-    font-size: 11px; cursor: pointer; font-family: 'Montserrat', sans-serif;
+    font-size: 11px; cursor: pointer; font-family: inherit;
 }
 .builder-content { display: none; padding: 15px; }
 .builder-content.show { display: block; }
@@ -39,7 +39,7 @@ body {
 }
 .field-list { background: #f8f9fa; border: 1px solid #d5dbdb; border-radius: 4px; overflow: hidden; }
 .field-list-header { background: #ecf0f1; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #2c3e50; border-bottom: 1px solid #d5dbdb; display: flex; justify-content: space-between; align-items: center; }
-.field-search-input { width: 80px; padding: 2px 4px; font-size: 10px; border: 1px solid #bdc3c7; border-radius: 2px; font-family: 'Montserrat', sans-serif; }
+.field-search-input { width: 80px; padding: 2px 4px; font-size: 10px; border: 1px solid #bdc3c7; border-radius: 2px; font-family: inherit; }
 .field-list-content { padding: 10px; max-height: 250px; overflow-y: auto; }
 .field-item {
     background: white; border: 1px solid #d5dbdb; border-radius: 3px; padding: 6px 8px;
@@ -84,12 +84,12 @@ body {
 }
 .dropped-field .remove-btn:hover { background: #c0392b; }
 .builder-actions { margin-top: 15px; padding-top: 15px; border-top: 1px solid #ecf0f1; display: flex; gap: 10px; justify-content: flex-end; }
-.btn-apply { background: #27ae60; color: white; padding: 8px 16px; border: none; border-radius: 3px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Montserrat', sans-serif; }
+.btn-apply { background: #27ae60; color: white; padding: 8px 16px; border: none; border-radius: 3px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn-apply:hover { background: #219a52; }
-.btn-reset { background: #e74c3c; color: white; padding: 8px 16px; border: none; border-radius: 3px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Montserrat', sans-serif; }
+.btn-reset { background: #e74c3c; color: white; padding: 8px 16px; border: none; border-radius: 3px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn-reset:hover { background: #c0392b; }
 
-/* New Filter Pane Styles */
+/* Filter Pane Styles */
 .pivot-filters-section {
     background: #f8f9fa; border: 1px solid #d5dbdb; border-radius: 4px; margin-top: 15px; overflow: hidden;
 }
@@ -99,7 +99,7 @@ body {
 }
 .filter-toggle-btn {
     background: #3498db; border: none; color: white; padding: 3px 8px; border-radius: 3px;
-    font-size: 10px; cursor: pointer; font-family: 'Montserrat', sans-serif;
+    font-size: 10px; cursor: pointer; font-family: inherit;
 }
 .filter-toggle-btn:hover { background: #2980b9; }
 .filters-content { display: none; padding: 15px; }
@@ -132,8 +132,8 @@ body {
 .section-header { background: #ecf0f1; padding: 10px 20px; border-bottom: 1px solid #bdc3c7; display: flex; justify-content: space-between; align-items: center; }
 .section-title { font-size: 14px; font-weight: 600; color: #2c3e50; }
 .search-container { display: flex; gap: 8px; align-items: center; }
-.search-input { padding: 6px 10px; border: 1px solid #bdc3c7; border-radius: 3px; font-size: 12px; width: 200px; font-family: 'Montserrat', sans-serif; }
-.btn { background: #3498db; color: white; padding: 6px 12px; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: 'Montserrat', sans-serif; }
+.search-input { padding: 6px 10px; border: 1px solid #bdc3c7; border-radius: 3px; font-size: 12px; width: 200px; font-family: inherit; }
+.btn { background: #3498db; color: white; padding: 6px 12px; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: inherit; }
 .btn:hover { background: #2980b9; }
 .btn-secondary { background: #95a5a6; }
 .btn-secondary:hover { background: #7f8c8d; }
@@ -145,9 +145,8 @@ body {
 .dimension-container { background: white; overflow-x: auto; }
 .column-filters { background: #f8f9fa; padding: 8px 20px; border-bottom: 1px solid #e9ecef; display: none; }
 .column-filters.show { display: block; }
-.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
-.filter-input { padding: 4px 6px; border: 1px solid #bdc3c7; border-radius: 3px; font-size: 11px; font-family: 'Montserrat', sans-serif; }
-.dimension-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'Montserrat', sans-serif; }
+.filter-input { padding: 4px 6px; border: 1px solid #bdc3c7; border-radius: 3px; font-size: 11px; font-family: inherit; }
+.dimension-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: inherit; }
 .dimension-table th {
     background: #34495e; color: white; padding: 8px 10px; text-align: left; font-weight: 500; font-size: 11px;
     text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; user-select: none; border-right: 1px solid #2c3e50; white-space: nowrap;
@@ -162,16 +161,17 @@ body {
 .expand-indicator { display: inline-block; margin-right: 6px; transition: transform 0.2s ease; font-weight: 600; font-size: 10px; }
 .dimension-row.expanded .expand-indicator { transform: rotate(90deg); }
 
-/* Enhanced Excel Pivot Table Styles with Scrollable Support */
+/* Excel Pivot Table Styles */
 .excel-pivot-table { 
     width: 100%; 
     border-collapse: collapse; 
     font-size: 11px; 
-    font-family: 'Montserrat', sans-serif; 
+    font-family: inherit; 
     background: white; 
     border: 2px solid #2c3e50; 
     table-layout: auto; 
     position: relative;
+    min-width: 1400px;
 }
 .excel-pivot-table .header-row-1 { background: #2c3e50; border-bottom: 2px solid #34495e; }
 .excel-pivot-table .header-row-2 { background: #34495e; border-bottom: 1px solid #5d6d7e; }
@@ -193,163 +193,16 @@ body {
     font-weight: 700; 
     position: sticky; 
     left: 0; 
-    z-index: 10;
-    min-width: 150px;
-}
-.excel-pivot-table .header-cell.grand-total { background: #e74c3c; font-weight: 700; }
-.excel-pivot-table .data-row { border-bottom: 1px solid #ecf0f1; }
-.excel-pivot-table .data-row:hover { background: #f8f9fa; }
-.excel-pivot-table .data-row.collapsed { display: none; }
-.excel-pivot-table .row-header-cell, .excel-pivot-table th.row-header {
-    position: sticky; 
-    left: 0; 
-    z-index: 5; 
-    background: #ecf0f1;
-    min-width: 150px;
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.excel-pivot-table .row-header-cell.expandable { cursor: pointer; user-select: none; }
-.excel-pivot-table .row-header-cell.expandable:hover { background: #d5dbdb; }
-.excel-pivot-table .expand-btn {
-    background: none; border: none; cursor: pointer; padding: 0; margin-right: 6px; font-size: 10px; font-weight: 600; color: #3498db; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 2px;
-}
-.excel-pivot-table .expand-btn:hover { background: #e3f2fd; }
-.excel-pivot-table .expand-btn.expanded { color: #e74c3c; }
-.excel-pivot-table .level-0 { background: #fff; font-weight: 600; border-left: 4px solid #3498db; }
-.excel-pivot-table .level-1 { background: #fafbfc; font-weight: 500; border-left: 3px solid #95a5a6; }
-.excel-pivot-table .level-2 { background: #f8f9fa; font-weight: 450; border-left: 2px solid #bdc3c7; }
-.excel-pivot-table .level-3 { background: #f5f6fa; font-weight: 400; border-left: 1px solid #d5dbdb; }
-.excel-pivot-table .data-cell { 
-    padding: 6px 8px; 
-    text-align: right; 
-    border: 1px solid #ecf0f1; 
-    background: white; 
-    font-family: 'Courier New', monospace; 
-    font-size: 10px; 
-    min-width: 70px;
-    white-space: nowrap;
-}
-.excel-pivot-table .data-cell:hover { background: #f8f9fa; }
-.excel-pivot-table .data-cell.subtotal { background: #d5dbdb; font-weight: 600; border-top: 2px solid #95a5a6; }
-.excel-pivot-table .data-cell.grand-total { background: #85929e; color: white; font-weight: 700; border-top: 2px solid #2c3e50; }
-.excel-pivot-table .data-cell.null { color: #95a5a6; font-style: italic; }
-.excel-pivot-table .data-cell.positive { color: #27ae60; }
-.excel-pivot-table .data-cell.negative { color: #e74c3c; }
-.excel-pivot-table .grand-total-row { background: #2c3e50; color: white; font-weight: 700; border-top: 3px solid #34495e; }
-.excel-pivot-table .grand-total-row .row-header-cell { background: #2c3e50; color: white; font-weight: 700; border: 1px solid #34495e; }
-.excel-pivot-table .grand-total-row .data-cell { background: #34495e; color: white; font-weight: 700; border: 1px solid #2c3e50; }
-
-/* Enhanced Pivot Container with Better Scrolling and Layout */
-.pivot-container { 
-    background: #f8f9fa; 
-    border-left: 3px solid #3498db; 
-    display: none; 
-    width: 100%;
-}
-.pivot-container.show { display: table-row; }
-.pivot-cell-container { 
-    padding: 0 !important; 
-    background: #f8f9fa; 
-    border: none !important;
-    vertical-align: top;
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-}
-.pivot-header { 
-    background: #ecf0f1; 
-    padding: 8px 15px; 
-    border-bottom: 1px solid #bdc3c7; 
-    font-size: 13px; 
-    font-weight: 600; 
-    color: #34495e; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    position: sticky;
-    top: 0;
-    z-index: 15;
-    margin: 0;
-    width: 100%;
-}
-.pivot-header .refresh-btn {
-    background: #27ae60; color: white; border: none; border-radius: 3px; padding: 3px 9px; font-size: 12px; cursor: pointer;
-}
-.pivot-header .refresh-btn:hover { background: #219a52; }
-
-.pivot-scroll-container {
-    position: relative;
-    overflow: auto;
-    max-height: 500px;
-    width: 100%;
-    max-width: 100vw; /* Force horizontal constraints */
-    border: 1px solid #d5dbdb;
-    background: #fff;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
-}
-
-.pivot-content {
-    padding: 0; 
-    overflow: visible;
-    background: #fff; 
-    position: relative;
-    width: 100%;
-}
-
-/* Enhanced Excel Pivot Table Styles with Better Sticky Support */
-.excel-pivot-table { 
-    border-collapse: collapse; 
-    font-size: 11px; 
-    font-family: 'Montserrat', sans-serif; 
-    background: white; 
-    border: none;
-    width: 100%;
-    min-width: 1400px; /* Increased to force scrolling with wider sticky column */
-}
-
-.excel-pivot-table .header-row-1 { background: #2c3e50; border-bottom: 2px solid #34495e; }
-.excel-pivot-table .header-row-2 { background: #34495e; border-bottom: 1px solid #5d6d7e; }
-
-.excel-pivot-table .header-cell { 
-    color: white; 
-    padding: 8px 12px; 
-    text-align: center; 
-    font-weight: 600; 
-    border-right: 1px solid rgba(255,255,255,0.2); 
-    position: relative; 
-    white-space: nowrap;
-    min-width: 80px;
-}
-
-.excel-pivot-table .header-cell.main-group { 
-    font-size: 12px; 
-    border-right: 2px solid rgba(255,255,255,0.4); 
-}
-
-.excel-pivot-table .header-cell.sub-group { font-size: 10px; font-weight: 500; }
-
-.excel-pivot-table .header-cell.row-header { 
-    background: #95a5a6; 
-    text-align: left; 
-    font-weight: 700; 
-    position: sticky; 
-    left: 0; 
     z-index: 30;
     width: 250px;
     min-width: 250px;
     max-width: 250px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
-
 .excel-pivot-table .header-cell.grand-total { background: #e74c3c; font-weight: 700; }
-
 .excel-pivot-table .data-row { border-bottom: 1px solid #ecf0f1; }
 .excel-pivot-table .data-row:hover { background: #f8f9fa; }
 .excel-pivot-table .data-row.collapsed { display: none; }
-
 .excel-pivot-table .row-header-cell, .excel-pivot-table th.row-header {
     position: sticky; 
     left: 0; 
@@ -365,10 +218,8 @@ body {
     border-right: 2px solid #bdc3c7;
     padding: 6px 10px;
 }
-
 .excel-pivot-table .row-header-cell.expandable { cursor: pointer; user-select: none; }
 .excel-pivot-table .row-header-cell.expandable:hover { background: #d5dbdb; }
-
 .excel-pivot-table .expand-btn {
     background: none; border: none; cursor: pointer; padding: 0; margin-right: 6px; 
     font-size: 10px; font-weight: 600; color: #3498db; width: 16px; height: 16px; 
@@ -403,24 +254,6 @@ body {
     left: 0;
     z-index: 25;
 }
-.excel-pivot-table .level-3 { background: #f5f6fa; font-weight: 400; }
-.excel-pivot-table .level-3 .row-header-cell { 
-    border-left: 1px solid #d5dbdb; 
-    padding-left: 70px; 
-    background: #f0f1f5;
-    position: sticky;
-    left: 0;
-    z-index: 25;
-}
-.excel-pivot-table .level-4 { background: #f0f1f5; font-weight: 350; }
-.excel-pivot-table .level-4 .row-header-cell { 
-    border-left: 1px solid #e9ecef; 
-    padding-left: 90px; 
-    background: #eef0f4;
-    position: sticky;
-    left: 0;
-    z-index: 25;
-}
 
 .excel-pivot-table .data-cell { 
     padding: 6px 8px; 
@@ -432,7 +265,6 @@ body {
     min-width: 80px;
     white-space: nowrap;
 }
-
 .excel-pivot-table .data-cell:hover { background: #f8f9fa; }
 .excel-pivot-table .data-cell.subtotal { background: #d5dbdb; font-weight: 600; border-top: 2px solid #95a5a6; }
 .excel-pivot-table .data-cell.grand-total { background: #85929e; color: white; font-weight: 700; border-top: 2px solid #2c3e50; }
@@ -448,7 +280,60 @@ body {
 }
 .excel-pivot-table .grand-total-row .data-cell { background: #34495e; color: white; font-weight: 700; border: 1px solid #2c3e50; }
 
-/* Sticky Headers Enhancement */
+/* Pivot Container */
+.pivot-container { 
+    background: #f8f9fa; 
+    border-left: 3px solid #3498db; 
+    display: none; 
+    width: 100%;
+}
+.pivot-container.show { display: table-row; }
+.pivot-cell-container { 
+    padding: 0 !important; 
+    background: #f8f9fa; 
+    border: none !important;
+    vertical-align: top;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+.pivot-header { 
+    background: #ecf0f1; 
+    padding: 8px 15px; 
+    border-bottom: 1px solid #bdc3c7; 
+    font-size: 13px; 
+    font-weight: 600; 
+    color: #34495e; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    margin: 0;
+    width: 100%;
+}
+
+.pivot-scroll-container {
+    position: relative;
+    overflow: auto;
+    max-height: 500px;
+    width: 100%;
+    max-width: 100vw;
+    border: 1px solid #d5dbdb;
+    background: #fff;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+}
+
+.pivot-content {
+    padding: 0; 
+    overflow: visible;
+    background: #fff; 
+    position: relative;
+    width: 100%;
+}
+
+/* Sticky Headers */
 .excel-pivot-table thead th {
     position: sticky;
     top: 0;
@@ -457,90 +342,84 @@ body {
 }
 
 .excel-pivot-table thead th.row-header {
-    z-index: 35; /* Higher than other sticky headers */
+    z-index: 35;
 }
 
-/* Horizontal Scroll Indicator */
-.pivot-scroll-container::-webkit-scrollbar {
-    height: 12px;
-}
-
-.pivot-scroll-container::-webkit-scrollbar-track {
-    background: #ecf0f1;
-    border-radius: 6px;
-}
-
-.pivot-scroll-container::-webkit-scrollbar-thumb {
-    background: linear-gradient(90deg, #3498db, #2980b9);
-    border-radius: 6px;
-    border: 2px solid #ecf0f1;
-}
-
-.pivot-scroll-container::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(90deg, #2980b9, #1f4e79);
-}
-
-.pivot-scroll-container::-webkit-scrollbar-corner {
-    background: #ecf0f1;
-}
-
-/* Enhanced Scrollbar Styling for Pivot Container */
+/* Enhanced Scrollbars */
 .pivot-scroll-container::-webkit-scrollbar {
     height: 12px;
     width: 12px;
 }
-
 .pivot-scroll-container::-webkit-scrollbar-track {
     background: linear-gradient(90deg, #ecf0f1, #d5dbdb, #ecf0f1);
     border-radius: 6px;
     border: 1px solid #bdc3c7;
 }
-
 .pivot-scroll-container::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #3498db, #2980b9);
     border-radius: 6px;
     border: 2px solid #ecf0f1;
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-
 .pivot-scroll-container::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #2980b9, #1f4e79);
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
-
-.pivot-scroll-container::-webkit-scrollbar-thumb:active {
-    background: linear-gradient(180deg, #e74c3c, #c0392b);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
-}
-
 .pivot-scroll-container::-webkit-scrollbar-corner {
     background: #ecf0f1;
 }
 
-/* Scroll Indicator - keep the original one as fallback */
-.scroll-indicator {
-    text-align: center;
-    padding: 8px;
-    background: linear-gradient(90deg, #ecf0f1, #d5dbdb, #ecf0f1);
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    min-height: 200px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #ecf0f1;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
     color: #7f8c8d;
-    font-size: 11px;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.loading-timer {
+    color: #3498db;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.error {
+    color: #e74c3c;
+    padding: 20px;
+    text-align: center;
+    background: #fdf2f2;
+    border: 1px solid #e74c3c;
+    border-radius: 4px;
+    margin: 20px;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
     font-style: italic;
-    border-top: 1px solid #bdc3c7;
-    animation: pulse 2s infinite;
-    display: none; /* Hidden by default since we have custom scroller */
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-}
-
-/* Parent Row Visibility Enhancement */
-.excel-pivot-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
 }
 
 /* Filter Active Indicator */
@@ -556,23 +435,7 @@ body {
     font-size: 8px;
 }
 
-.pivot-filters-pane {
-    display: flex; gap: 14px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;
-}
-.pivot-filter-chip {
-    background: #ecf0f1; border-radius: 4px; border: 1px solid #d5dbdb; padding: 3px 7px 3px 7px;
-    display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; min-width: 90px; position: relative;
-}
-.pivot-filter-dropdown {
-    position: absolute; left: 0; top: 28px; background: white; border: 1px solid #d5dbdb; border-radius: 4px; z-index: 1001; max-height: 200px; overflow-y: auto; width: 180px; box-shadow: 0 4px 18px 2px #0001;
-}
-.pivot-filter-option { padding: 6px 12px; cursor: pointer; }
-.pivot-filter-option.selected { background: #3498db; color: white; }
-.pivot-filter-clear-btn {
-    background: #fbeee0; border: 1px solid #f1c40f; color: #f1c40f; border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer; margin-left: 12px;
-}
-.pivot-filter-clear-btn:hover { background: #f9ca24; color: #fff; }
-
+/* Responsive Design */
 @media (max-width: 1024px) {
     .pivot-designer { grid-template-columns: 1fr; }
 }
@@ -923,7 +786,7 @@ body {
             this.loadColumnFilterValues();
         };
 
-        // NEW: Excel-style Filter Functions
+        // Filter Functions
         ProfessionalPivotSystem.prototype.toggleFiltersPane = function() {
             this.filtersVisible = !this.filtersVisible;
             var content = document.getElementById('filtersContent');
@@ -1019,7 +882,7 @@ body {
             // Individual options
             options.forEach(function(value) {
                 var isExcluded = excludedValues.includes(value);
-                var isSelected = !isExcluded; // If not excluded, then it's selected
+                var isSelected = !isExcluded;
                 html += '<div class="filter-option" onclick="pivotSystem.toggleFilterValue(\'' + column + '\', \'' + 
                         String(value).replace(/'/g, "\\'") + '\')">' +
                         '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' readonly> ' +
@@ -1124,7 +987,7 @@ body {
             }
             
             this.renderDropZones();
-            this.loadColumnFilterValues(); // Reload filter values when config changes
+            this.loadColumnFilterValues();
         };
 
         ProfessionalPivotSystem.prototype.removeFieldFromAllZones = function(fieldName) {
@@ -1188,7 +1051,7 @@ body {
             if (index > -1) {
                 this.pivotConfig[zone].splice(index, 1);
                 this.renderDropZones();
-                this.loadColumnFilterValues(); // Reload filter values when config changes
+                this.loadColumnFilterValues();
             }
         };
 
@@ -1921,13 +1784,21 @@ body {
             }.bind(this));
         };
 
-        // Initialize the system
-        var pivotSystem = new ProfessionalPivotSystem();
+        // Initialize the system and make it globally accessible
+        var pivotSystem;
         
-        // Add debug function to window for console access
-        window.debugPivotFilters = function() {
-            pivotSystem.debugFilters();
-        };
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', function() {
+            pivotSystem = new ProfessionalPivotSystem();
+            
+            // Make it globally accessible for onclick handlers
+            window.pivotSystem = pivotSystem;
+            
+            // Add debug function to window for console access
+            window.debugPivotFilters = function() {
+                pivotSystem.debugFilters();
+            };
+        });
     </script>
 </body>
 </html>

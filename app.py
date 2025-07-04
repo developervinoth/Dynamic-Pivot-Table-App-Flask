@@ -95,12 +95,22 @@ class DynamicPivotSystem:
                 for col, included_values in column_filters.items():
                     if col in filtered_df.columns and included_values:
                         initial_count = len(filtered_df)
-                        # Filter to only include the specified values
-                        filtered_df = filtered_df[filtered_df[col].isin(included_values)]
+                        # Convert all values to same type for comparison
+                        try:
+                            # Try to convert both series and filter values to strings for safe comparison
+                            filtered_df_col_str = filtered_df[col].astype(str)
+                            included_values_str = [str(val) for val in included_values]
+                            filtered_df = filtered_df[filtered_df_col_str.isin(included_values_str)]
+                        except Exception as type_error:
+                            print(f"Type conversion error for {col}: {type_error}, trying direct comparison")
+                            # Fallback to direct comparison
+                            filtered_df = filtered_df[filtered_df[col].isin(included_values)]
+                        
                         print(f"Filter {col}: included {len(included_values)} values, {initial_count} -> {len(filtered_df)} rows")
                         
                         if filtered_df.empty:
-                            return {'error': f'No data found after applying filter on {col}. Included values: {included_values[:5]}...'}
+                            available_values = self.fact_df[self.fact_df[filter_column] == filter_value][col].unique()[:10]  # Show first 10
+                            return {'error': f'No data found after applying filter on {col}. Available values: {list(available_values)}'}
             else:
                 print("No column filters provided")
             
@@ -118,10 +128,18 @@ class DynamicPivotSystem:
                 index_cols = [index_cols]
             
             print(f"Original config - Index: {index_cols}, Values: {value_cols}, Columns: {columns_cols}")
-            print(f"Column filters applied: {column_filters}")
             
             # Clean the configuration
             valid_columns = set(filtered_df.columns)
+            
+            # Check if all required columns exist
+            missing_cols = []
+            for col in index_cols + value_cols + columns_cols:
+                if col not in valid_columns:
+                    missing_cols.append(col)
+            
+            if missing_cols:
+                return {'error': f'Missing columns in filtered data: {missing_cols}. Available columns: {list(valid_columns)}'}
             
             index_cols = [col for col in index_cols 
                          if col != filter_column and col in valid_columns]
@@ -145,8 +163,13 @@ class DynamicPivotSystem:
             print(f"Final filtered dataset: {len(filtered_df)} rows")
             
             # Validation
-            if not index_cols or not value_cols or not columns_cols:
-                return self._handle_missing_config(filtered_df, filter_column, index_cols, value_cols, columns_cols)
+            if not index_cols:
+                return {'error': 'No valid index columns found after filtering and configuration cleanup'}
+            if not value_cols:
+                numeric_cols = [col for col in valid_columns if pd.api.types.is_numeric_dtype(filtered_df[col])]
+                return {'error': f'No valid numeric value columns found. Available numeric columns: {numeric_cols}'}
+            if not columns_cols:
+                return {'error': 'No valid column dimensions found after filtering and configuration cleanup'}
             
             # Create Excel-style hierarchical pivot
             return self._create_excel_style_pivot(filtered_df, index_cols, value_cols, columns_cols)
@@ -445,7 +468,7 @@ class DynamicPivotSystem:
             # Single column dimension
             col_values = [str(c) for c in pivot.columns if str(c) != 'Grand Total']
             # Sort the column values
-            col_values = sorted(col_values)
+            col_values = self._sort_values(col_values)
             
             headers['levels'] = [columns_cols[0]]
             headers['structure'] = {
@@ -496,19 +519,19 @@ class DynamicPivotSystem:
             
             # Convert sets to sorted lists
             for main_col in main_groups:
-                main_groups[main_col] = sorted(list(main_groups[main_col]))
+                main_groups[main_col] = self._sort_values(list(main_groups[main_col]))
             
             # Remove any main groups that are 'Grand Total' or empty
             main_groups = {k: v for k, v in main_groups.items() if k != 'Grand Total'}
             
             headers['structure'] = {
-                'main_groups': sorted(main_groups.keys()),
+                'main_groups': self._sort_values(list(main_groups.keys())),
                 'sub_groups': main_groups,
                 'has_subtotals': any(len(subs) > 1 for subs in main_groups.values())
             }
             
             # Build data keys with sorted structure
-            for main_col in sorted(main_groups.keys()):
+            for main_col in self._sort_values(list(main_groups.keys())):
                 sub_cols = main_groups[main_col]  # Already sorted above
                 if sub_cols:
                     for sub_col in sub_cols:
@@ -536,6 +559,34 @@ class DynamicPivotSystem:
         print(f"Header structure: {headers['structure']}")
         
         return headers
+    
+    def _sort_values(self, values):
+        """Sort values with intelligent numeric/string sorting"""
+        try:
+            # Try to convert to numbers for sorting
+            numeric_values = []
+            string_values = []
+            
+            for val in values:
+                try:
+                    numeric_values.append((float(val), val))
+                except (ValueError, TypeError):
+                    string_values.append(val)
+            
+            # Sort numeric values by their numeric representation
+            numeric_values.sort(key=lambda x: x[0])
+            numeric_sorted = [x[1] for x in numeric_values]
+            
+            # Sort string values alphabetically
+            string_values.sort()
+            
+            # Return numeric values first, then string values
+            return numeric_sorted + string_values
+            
+        except Exception as e:
+            print(f"Error sorting values: {e}")
+            # Fallback to simple string sort
+            return sorted([str(v) for v in values])
     
     def _build_row_hierarchy(self, pivot, index_cols):
         """Build hierarchical row structure for collapsible rows"""
@@ -795,6 +846,65 @@ def get_filter_values():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/dynamic-filter-values', methods=['POST'])
+def get_dynamic_filter_values():
+    """Get dynamic filter values based on current filter state"""
+    try:
+        data = request.get_json()
+        filter_column = data.get('filter_column')
+        columns = data.get('columns', [])
+        current_filters = data.get('current_filters', {})
+        pivot_config = data.get('pivot_config', {})
+        
+        if not filter_column or not columns:
+            return jsonify({'error': 'filter_column and columns are required'}), 400
+        
+        print(f"Getting dynamic filter values for columns: {columns}")
+        print(f"Current filters: {current_filters}")
+        
+        # Start with the fact dataframe
+        df = pivot_system.fact_df.copy()
+        
+        # Apply current filters to get the filtered dataset
+        for col, included_values in current_filters.items():
+            if col in df.columns and included_values:
+                initial_count = len(df)
+                df = df[df[col].isin(included_values)]
+                print(f"Applied filter {col}: {initial_count} -> {len(df)} rows")
+        
+        result = {'column_values': {}}
+        
+        # For each column, get unique values from the filtered dataset
+        for column in columns:
+            if column in df.columns:
+                unique_values = df[column].dropna().unique()
+                
+                # Sort values appropriately
+                try:
+                    # Try numeric sort first
+                    if all(isinstance(val, (int, float)) for val in unique_values if pd.notna(val)):
+                        unique_values = sorted(unique_values)
+                    else:
+                        # String sort
+                        unique_values = sorted([str(val) for val in unique_values if pd.notna(val)])
+                except:
+                    # Fallback to string sort
+                    unique_values = sorted([str(val) for val in unique_values if pd.notna(val)])
+                
+                result['column_values'][column] = unique_values
+                print(f"Column {column}: {len(unique_values)} unique values")
+            else:
+                result['column_values'][column] = []
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        error_msg = f'Error getting dynamic filter values: {str(e)}'
+        print(error_msg)
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': error_msg}), 500
+
 @app.route('/api/fact-columns')
 def get_fact_columns():
     """Get available columns from fact table for configuration"""
@@ -815,6 +925,58 @@ def get_column_values(column_name):
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/debug-pivot', methods=['POST'])
+def debug_pivot():
+    """Debug endpoint to check what's happening with pivot generation"""
+    try:
+        data = request.get_json()
+        filter_column = data.get('filter_column')
+        filter_value = data.get('filter_value')
+        column_filters = data.get('column_filters', {})
+        
+        # Start with the fact dataframe
+        df = pivot_system.fact_df.copy()
+        
+        debug_info = {
+            'original_shape': df.shape,
+            'original_columns': list(df.columns),
+            'filter_column': filter_column,
+            'filter_value': filter_value,
+            'column_filters': column_filters
+        }
+        
+        # Apply main filter
+        df = df[df[filter_column] == filter_value].copy()
+        debug_info['after_main_filter'] = df.shape
+        
+        # Apply column filters
+        if column_filters:
+            for col, included_values in column_filters.items():
+                if col in df.columns and included_values:
+                    initial_count = len(df)
+                    
+                    # Get sample of actual values in the column
+                    actual_values = df[col].unique()[:10]
+                    debug_info[f'{col}_actual_values'] = list(actual_values)
+                    debug_info[f'{col}_included_values'] = included_values[:10]
+                    debug_info[f'{col}_data_type'] = str(df[col].dtype)
+                    
+                    # Try filtering
+                    try:
+                        df_filtered = df[df[col].isin(included_values)]
+                        debug_info[f'{col}_filter_result'] = f"{initial_count} -> {len(df_filtered)} rows"
+                        df = df_filtered
+                    except Exception as e:
+                        debug_info[f'{col}_filter_error'] = str(e)
+        
+        debug_info['final_shape'] = df.shape
+        debug_info['final_columns'] = list(df.columns)
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 if __name__ == '__main__':
     print("🚀 Enhanced Dynamic Pivot System with Column Filters Started!")
