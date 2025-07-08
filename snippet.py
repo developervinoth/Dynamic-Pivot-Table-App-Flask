@@ -55,7 +55,7 @@ class DatabricksPivotQueryBuilder:
             raise Exception(f"Query construction failed: {str(e)}")
     
     def build_final_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
-        """Build final pivot query with actual pivot values"""
+        """Build final pivot query with actual pivot values and proper data type handling"""
         try:
             pivot_column = config['columns_cols'][0]
             
@@ -69,7 +69,11 @@ class DatabricksPivotQueryBuilder:
                 raise Exception("No valid pivot values found")
             
             pivot_in_clause = ', '.join(cleaned_values)
-            aggregations = [f"SUM({col}) as sum_{col}" for col in config['value_cols']]
+            
+            # Build aggregations with explicit CAST to handle data type mismatches
+            aggregations = []
+            for value_col in config['value_cols']:
+                aggregations.append(f"SUM(CAST({value_col} AS DECIMAL(18,2))) as sum_{value_col}")
             
             query = f"""
             WITH base_data AS (
@@ -78,8 +82,8 @@ class DatabricksPivotQueryBuilder:
             filtered_base AS (
                 SELECT 
                     {', '.join(config['index_cols'])},
-                    {pivot_column},
-                    {', '.join(config['value_cols'])}
+                    CAST({pivot_column} AS STRING) as {pivot_column},
+                    {', '.join([f'CAST({col} AS DECIMAL(18,2)) as {col}' for col in config['value_cols']])}
                 FROM base_data
                 WHERE {pivot_column} IS NOT NULL
             )
@@ -97,7 +101,7 @@ class DatabricksPivotQueryBuilder:
             raise Exception(f"Final pivot query construction failed: {str(e)}")
     
     def build_case_when_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
-        """Build pivot using CASE WHEN statements for maximum compatibility"""
+        """Build pivot using CASE WHEN with proper data type handling"""
         try:
             pivot_column = config['columns_cols'][0]
             
@@ -110,7 +114,7 @@ class DatabricksPivotQueryBuilder:
                     for value_col in config['value_cols']:
                         escaped_value = str(value).replace("'", "''")
                         case_statements.append(
-                            f"SUM(CASE WHEN {pivot_column} = '{escaped_value}' THEN {value_col} ELSE 0 END) as {safe_column_name}_{value_col}"
+                            f"SUM(CASE WHEN CAST({pivot_column} AS STRING) = '{escaped_value}' THEN CAST({value_col} AS DECIMAL(18,2)) ELSE 0 END) as {safe_column_name}_{value_col}"
                         )
             
             if not case_statements:
@@ -123,8 +127,8 @@ class DatabricksPivotQueryBuilder:
             filtered_base AS (
                 SELECT 
                     {', '.join(config['index_cols'])},
-                    {pivot_column},
-                    {', '.join(config['value_cols'])}
+                    CAST({pivot_column} AS STRING) as {pivot_column},
+                    {', '.join([f'CAST({col} AS DECIMAL(18,2)) as {col}' for col in config['value_cols']])}
                 FROM base_data
                 WHERE {pivot_column} IS NOT NULL
             )
@@ -140,6 +144,60 @@ class DatabricksPivotQueryBuilder:
             
         except Exception as e:
             raise Exception(f"Case-when pivot construction failed: {str(e)}")
+    
+    def build_safe_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
+        """Build a safer pivot query with explicit data type conversion"""
+        try:
+            pivot_column = config['columns_cols'][0]
+            
+            # Convert all pivot values to strings and escape them
+            safe_pivot_values = []
+            for val in pivot_values:
+                if val is not None:
+                    str_val = str(val).replace("'", "''")
+                    safe_pivot_values.append(f"'{str_val}'")
+            
+            if not safe_pivot_values:
+                raise Exception("No valid pivot values found")
+            
+            # Build manual pivot using aggregation
+            pivot_columns = []
+            for i, val in enumerate(pivot_values):
+                if val is not None:
+                    safe_col_name = f"col_{i}_{str(val).replace(' ', '_').replace('-', '_')}"
+                    safe_col_name = ''.join(c for c in safe_col_name if c.isalnum() or c == '_')[:63]  # Limit length
+                    
+                    for value_col in config['value_cols']:
+                        escaped_val = str(val).replace("'", "''")
+                        pivot_columns.append(
+                            f"SUM(CASE WHEN TRIM(CAST({pivot_column} AS STRING)) = '{escaped_val}' THEN COALESCE(CAST({value_col} AS DOUBLE), 0) ELSE 0 END) as {safe_col_name}_{value_col}"
+                        )
+            
+            query = f"""
+            WITH base_data AS (
+                {base_query}
+            ),
+            cleaned_base AS (
+                SELECT 
+                    {', '.join(config['index_cols'])},
+                    TRIM(CAST({pivot_column} AS STRING)) as {pivot_column},
+                    {', '.join([f'COALESCE(CAST({col} AS DOUBLE), 0) as {col}' for col in config['value_cols']])}
+                FROM base_data
+                WHERE {pivot_column} IS NOT NULL 
+                  AND TRIM(CAST({pivot_column} AS STRING)) != ''
+            )
+            SELECT 
+                {', '.join(config['index_cols'])},
+                {', '.join(pivot_columns)}
+            FROM cleaned_base
+            GROUP BY {', '.join(config['index_cols'])}
+            ORDER BY {', '.join(config['index_cols'])}
+            """
+            
+            return query
+            
+        except Exception as e:
+            raise Exception(f"Safe pivot query construction failed: {str(e)}")
     
     def _extract_and_validate_config(self, pivot_config: Dict) -> Dict[str, List]:
         """Extract and normalize pivot configuration"""
@@ -253,23 +311,38 @@ class DatabricksPivotSystem:
             pivot_values = values_df.iloc[:, 0].tolist()
             logger.info(f"Found {len(pivot_values)} unique pivot values")
             
-            # Step 3: Choose pivot method
+            # Step 3: Choose pivot method with better error handling
             if len(pivot_values) <= 100:
                 try:
                     final_query = self.query_builder.build_final_pivot_query(
                         pivot_values, step_queries['config'], step_queries['base_query']
                     )
-                    logger.info("Using native PIVOT method")
+                    logger.info("Using native PIVOT method with data type casting")
                 except Exception as e:
-                    logger.warning(f"Native PIVOT failed, using CASE WHEN: {e}")
+                    logger.warning(f"Native PIVOT failed, trying CASE WHEN: {e}")
+                    try:
+                        final_query = self.query_builder.build_case_when_pivot_query(
+                            pivot_values, step_queries['config'], step_queries['base_query']
+                        )
+                        logger.info("Using CASE WHEN method with data type casting")
+                    except Exception as e2:
+                        logger.warning(f"CASE WHEN failed, using safe pivot: {e2}")
+                        final_query = self.query_builder.build_safe_pivot_query(
+                            pivot_values, step_queries['config'], step_queries['base_query']
+                        )
+                        logger.info("Using safe pivot method")
+            else:
+                try:
                     final_query = self.query_builder.build_case_when_pivot_query(
                         pivot_values, step_queries['config'], step_queries['base_query']
                     )
-            else:
-                final_query = self.query_builder.build_case_when_pivot_query(
-                    pivot_values, step_queries['config'], step_queries['base_query']
-                )
-                logger.info("Using CASE WHEN method for large dataset")
+                    logger.info("Using CASE WHEN method for large dataset")
+                except Exception as e:
+                    logger.warning(f"CASE WHEN failed, using safe pivot: {e}")
+                    final_query = self.query_builder.build_safe_pivot_query(
+                        pivot_values, step_queries['config'], step_queries['base_query']
+                    )
+                    logger.info("Using safe pivot method for large dataset")
             
             # Step 4: Execute pivot query
             pivot_df = self.execute_databricks_query(final_query)
