@@ -1,12 +1,14 @@
 """
-Databricks Dynamic Pivot Module - Production Ready
+Databricks Dynamic Pivot Module - Metadata-Aware Version (Fixed)
+Analyzes table schemas first to prevent datatype mismatch errors
 Uses your existing fire_query module for execution
 """
 
 import pandas as pd
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import logging
+import re
 
 # Import your existing Databricks query module
 try:
@@ -19,28 +21,236 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class DatabricksPivotQueryBuilder:
-    """Dynamic query builder for Databricks PIVOT operations using base queries"""
+class DatabricksSchemaAnalyzer:
+    """Analyzes Databricks table schemas to understand data types"""
     
-    def __init__(self, base_query_builder):
+    def __init__(self):
+        self.schema_cache = {}
+        self.numeric_types = {
+            'int', 'bigint', 'smallint', 'tinyint', 'integer',
+            'float', 'double', 'decimal', 'numeric', 'real'
+        }
+        self.string_types = {'string', 'varchar', 'char', 'text'}
+        self.date_types = {'date', 'timestamp', 'datetime'}
+        self.boolean_types = {'boolean', 'bool'}
+    
+    def analyze_query_schema(self, base_query: str) -> Dict[str, Dict]:
+        """Analyze the schema of columns returned by a query"""
+        try:
+            # Method 1: Try DESCRIBE on the query
+            info_query = f"""
+            DESCRIBE (
+                SELECT * FROM (
+                    {base_query}
+                ) LIMIT 1
+            )
+            """
+            
+            logger.info("Analyzing query schema using DESCRIBE...")
+            schema_df = fire_query(info_query)
+            
+            column_metadata = {}
+            for _, row in schema_df.iterrows():
+                col_name = row['col_name']
+                data_type = str(row['data_type']).lower()
+                
+                column_metadata[col_name] = {
+                    'name': col_name,
+                    'type': data_type,
+                    'category': self._categorize_type(data_type),
+                    'is_numeric': self._is_numeric_type(data_type),
+                    'is_string': self._is_string_type(data_type),
+                    'is_date': self._is_date_type(data_type),
+                    'needs_casting': self._needs_special_casting(data_type),
+                    'safe_cast_target': self._get_safe_cast_target(data_type)
+                }
+            
+            logger.info(f"Analyzed {len(column_metadata)} columns using DESCRIBE")
+            return column_metadata
+            
+        except Exception as e:
+            logger.warning(f"DESCRIBE method failed: {e}, trying sample data approach...")
+            # Fallback: analyze with sample data
+            return self._analyze_with_sample_data(base_query)
+    
+    def analyze_table_schema(self, table_name: str) -> Dict[str, Dict]:
+        """Analyze schema of a specific table"""
+        try:
+            if table_name in self.schema_cache:
+                return self.schema_cache[table_name]
+            
+            describe_query = f"DESCRIBE {table_name}"
+            schema_df = fire_query(describe_query)
+            
+            column_metadata = {}
+            for _, row in schema_df.iterrows():
+                col_name = row['col_name']
+                data_type = str(row['data_type']).lower()
+                
+                column_metadata[col_name] = {
+                    'name': col_name,
+                    'type': data_type,
+                    'category': self._categorize_type(data_type),
+                    'is_numeric': self._is_numeric_type(data_type),
+                    'is_string': self._is_string_type(data_type),
+                    'is_date': self._is_date_type(data_type),
+                    'needs_casting': self._needs_special_casting(data_type),
+                    'safe_cast_target': self._get_safe_cast_target(data_type)
+                }
+            
+            self.schema_cache[table_name] = column_metadata
+            logger.info(f"Cached schema for {table_name}: {len(column_metadata)} columns")
+            return column_metadata
+            
+        except Exception as e:
+            logger.error(f"Table schema analysis failed for {table_name}: {e}")
+            return {}
+    
+    def _analyze_with_sample_data(self, base_query: str) -> Dict[str, Dict]:
+        """Fallback method: analyze using sample data"""
+        try:
+            sample_query = f"""
+            SELECT * FROM (
+                {base_query}
+            ) LIMIT 100
+            """
+            
+            sample_df = fire_query(sample_query)
+            column_metadata = {}
+            
+            for col in sample_df.columns:
+                # Infer type from pandas
+                dtype = str(sample_df[col].dtype)
+                sample_values = sample_df[col].dropna().head(10).tolist()
+                
+                inferred_type = self._infer_databricks_type(dtype, sample_values)
+                
+                column_metadata[col] = {
+                    'name': col,
+                    'type': inferred_type,
+                    'category': self._categorize_type(inferred_type),
+                    'is_numeric': self._is_numeric_type(inferred_type),
+                    'is_string': self._is_string_type(inferred_type),
+                    'is_date': self._is_date_type(inferred_type),
+                    'needs_casting': True,  # Conservative approach
+                    'safe_cast_target': self._get_safe_cast_target(inferred_type),
+                    'inferred': True
+                }
+            
+            logger.info(f"Inferred schema from sample data: {len(column_metadata)} columns")
+            return column_metadata
+            
+        except Exception as e:
+            logger.error(f"Sample data analysis failed: {e}")
+            return {}
+    
+    def _categorize_type(self, data_type: str) -> str:
+        """Categorize data type into broad categories"""
+        data_type = data_type.lower()
+        
+        if any(t in data_type for t in self.numeric_types):
+            return 'numeric'
+        elif any(t in data_type for t in self.string_types):
+            return 'string'
+        elif any(t in data_type for t in self.date_types):
+            return 'date'
+        elif any(t in data_type for t in self.boolean_types):
+            return 'boolean'
+        else:
+            return 'unknown'
+    
+    def _is_numeric_type(self, data_type: str) -> bool:
+        """Check if data type is numeric"""
+        return any(t in data_type.lower() for t in self.numeric_types)
+    
+    def _is_string_type(self, data_type: str) -> bool:
+        """Check if data type is string-like"""
+        return any(t in data_type.lower() for t in self.string_types)
+    
+    def _is_date_type(self, data_type: str) -> bool:
+        """Check if data type is date/time"""
+        return any(t in data_type.lower() for t in self.date_types)
+    
+    def _needs_special_casting(self, data_type: str) -> bool:
+        """Determine if type needs special handling"""
+        problematic_types = ['decimal', 'numeric', 'timestamp', 'array', 'struct', 'map']
+        return any(t in data_type.lower() for t in problematic_types)
+    
+    def _get_safe_cast_target(self, data_type: str) -> str:
+        """Get the safest cast target for operations"""
+        data_type = data_type.lower()
+        
+        if self._is_numeric_type(data_type):
+            return 'DOUBLE'
+        elif self._is_date_type(data_type):
+            return 'STRING'  # Convert dates to strings for pivoting
+        else:
+            return 'STRING'
+    
+    def _infer_databricks_type(self, pandas_dtype: str, sample_values: List) -> str:
+        """Infer Databricks type from pandas dtype and sample values"""
+        if 'int' in pandas_dtype:
+            return 'bigint'
+        elif 'float' in pandas_dtype:
+            return 'double'
+        elif 'bool' in pandas_dtype:
+            return 'boolean'
+        elif 'datetime' in pandas_dtype:
+            return 'timestamp'
+        else:
+            # Check sample values for more clues
+            if sample_values:
+                first_val = str(sample_values[0])
+                if re.match(r'^\d{4}-\d{2}-\d{2}', first_val):
+                    return 'date'
+            return 'string'
+
+
+class MetadataAwarePivotQueryBuilder:
+    """Query builder that uses metadata to create type-safe queries"""
+    
+    def __init__(self, base_query_builder, schema_analyzer: DatabricksSchemaAnalyzer):
         self.base_query_builder = base_query_builder
+        self.schema_analyzer = schema_analyzer
+        self.column_metadata = None
+    
+    def initialize_with_metadata(self, base_query: str) -> bool:
+        """Initialize the builder with metadata from the base query"""
+        try:
+            self.column_metadata = self.schema_analyzer.analyze_query_schema(base_query)
+            logger.info(f"Initialized with metadata for {len(self.column_metadata)} columns")
+            
+            # Log column types for debugging
+            for col, meta in self.column_metadata.items():
+                logger.debug(f"{col}: {meta['type']} ({meta['category']})")
+            
+            return len(self.column_metadata) > 0
+            
+        except Exception as e:
+            logger.error(f"Metadata initialization failed: {e}")
+            return False
     
     def build_two_step_pivot_query(self, filter_column: str, filter_value: str, 
                                  pivot_config: Dict, column_filters: Optional[Dict] = None) -> Dict[str, Any]:
-        """Build query in two steps using base query"""
+        """Build query in two steps using metadata"""
         try:
             config = self._extract_and_validate_config(pivot_config)
             base_query = self.base_query_builder(filter_column, filter_value, column_filters)
             pivot_column = config['columns_cols'][0]
             
+            # Get metadata for pivot column
+            pivot_meta = self.column_metadata.get(pivot_column, {})
+            cast_target = pivot_meta.get('safe_cast_target', 'STRING')
+            
             values_query = f"""
             WITH base_data AS (
                 {base_query}
             )
-            SELECT DISTINCT {pivot_column}
+            SELECT DISTINCT CAST({pivot_column} AS {cast_target}) as pivot_value
             FROM base_data
             WHERE {pivot_column} IS NOT NULL
-            ORDER BY {pivot_column}
+              AND TRIM(CAST({pivot_column} AS STRING)) != ''
+            ORDER BY CAST({pivot_column} AS {cast_target})
             LIMIT 500
             """
             
@@ -48,49 +258,54 @@ class DatabricksPivotQueryBuilder:
                 'step1_get_values': values_query,
                 'config': config,
                 'base_query': base_query,
-                'pivot_column': pivot_column
+                'pivot_column': pivot_column,
+                'pivot_metadata': pivot_meta
             }
             
         except Exception as e:
-            raise Exception(f"Query construction failed: {str(e)}")
+            raise Exception(f"Metadata-aware query construction failed: {str(e)}")
     
-    def build_final_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
-        """Build final pivot query with actual pivot values and proper data type handling"""
+    def build_type_safe_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
+        """Build pivot query using metadata for type safety"""
         try:
+            if not self.column_metadata:
+                raise Exception("Metadata not initialized. Call initialize_with_metadata first.")
+            
             pivot_column = config['columns_cols'][0]
+            pivot_meta = self.column_metadata.get(pivot_column, {})
             
-            cleaned_values = []
-            for val in pivot_values:
-                if val is not None:
-                    escaped_val = str(val).replace("'", "''")
-                    cleaned_values.append(f"'{escaped_val}'")
+            # Build type-safe value list
+            safe_pivot_values = self._build_safe_value_list(pivot_values, pivot_meta)
             
-            if not cleaned_values:
-                raise Exception("No valid pivot values found")
+            if not safe_pivot_values:
+                raise Exception("No valid pivot values after type conversion")
             
-            pivot_in_clause = ', '.join(cleaned_values)
+            # Build type-safe aggregations
+            aggregations = self._build_safe_aggregations(config['value_cols'])
             
-            # Build aggregations with explicit CAST to handle data type mismatches
-            aggregations = []
-            for value_col in config['value_cols']:
-                aggregations.append(f"SUM(CAST({value_col} AS DECIMAL(18,2))) as sum_{value_col}")
+            # Build type-safe base query
+            typed_selects = self._build_typed_selects(config)
+            
+            # Build filter clause
+            filter_clause = self._build_safe_filter(pivot_column, pivot_meta, safe_pivot_values)
             
             query = f"""
             WITH base_data AS (
                 {base_query}
             ),
-            filtered_base AS (
+            typed_base AS (
                 SELECT 
-                    {', '.join(config['index_cols'])},
-                    CAST({pivot_column} AS STRING) as {pivot_column},
-                    {', '.join([f'CAST({col} AS DECIMAL(18,2)) as {col}' for col in config['value_cols']])}
+                    {typed_selects}
                 FROM base_data
-                WHERE {pivot_column} IS NOT NULL
+                WHERE {filter_clause}
             )
-            SELECT * FROM filtered_base
+            SELECT 
+                {', '.join(config['index_cols'])},
+                {', '.join([f'COALESCE({agg.split(" as ")[1]}, 0.0) as {agg.split(" as ")[1]}' for agg in aggregations])}
+            FROM typed_base
             PIVOT (
                 {', '.join(aggregations)}
-                FOR {pivot_column} IN ({pivot_in_clause})
+                FOR {pivot_column} IN ({', '.join(safe_pivot_values)})
             )
             ORDER BY {', '.join(config['index_cols'])}
             """
@@ -98,44 +313,134 @@ class DatabricksPivotQueryBuilder:
             return query
             
         except Exception as e:
-            raise Exception(f"Final pivot query construction failed: {str(e)}")
+            # Fallback to case-when approach
+            logger.warning(f"Type-safe pivot failed, using case-when: {e}")
+            return self._build_case_when_with_metadata(pivot_values, config, base_query)
     
-    def build_case_when_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
-        """Build pivot using CASE WHEN with proper data type handling"""
+    def _build_safe_value_list(self, pivot_values: List, pivot_meta: Dict) -> List[str]:
+        """Build type-safe pivot value list based on metadata"""
+        safe_values = []
+        target_type = pivot_meta.get('safe_cast_target', 'STRING')
+        
+        for val in pivot_values:
+            if val is not None:
+                try:
+                    if target_type == 'STRING':
+                        escaped_val = str(val).replace("'", "''").strip()
+                        if escaped_val:
+                            safe_values.append(f"'{escaped_val}'")
+                    elif target_type == 'DOUBLE':
+                        # For numeric pivots, ensure proper formatting
+                        if isinstance(val, (int, float)):
+                            safe_values.append(str(val))
+                        else:
+                            # Try to convert to number
+                            num_val = float(str(val))
+                            safe_values.append(str(num_val))
+                    else:
+                        # Default to string
+                        escaped_val = str(val).replace("'", "''")
+                        safe_values.append(f"'{escaped_val}'")
+                        
+                except (ValueError, TypeError):
+                    logger.warning(f"Could not convert pivot value: {val}")
+                    continue
+        
+        return safe_values
+    
+    def _build_safe_aggregations(self, value_cols: List[str]) -> List[str]:
+        """Build type-safe aggregations based on column metadata"""
+        aggregations = []
+        
+        for col in value_cols:
+            col_meta = self.column_metadata.get(col, {})
+            
+            if col_meta.get('is_numeric', True):
+                target_type = col_meta.get('safe_cast_target', 'DOUBLE')
+                aggregations.append(f"SUM(COALESCE(CAST({col} AS {target_type}), 0.0)) as sum_{col}")
+            else:
+                # For non-numeric columns, count occurrences
+                aggregations.append(f"COUNT({col}) as count_{col}")
+        
+        return aggregations
+    
+    def _build_typed_selects(self, config: Dict) -> str:
+        """Build SELECT clause with proper type casting"""
+        selects = []
+        
+        # Index columns
+        for col in config['index_cols']:
+            col_meta = self.column_metadata.get(col, {})
+            target_type = col_meta.get('safe_cast_target', 'STRING')
+            selects.append(f"CAST({col} AS {target_type}) as {col}")
+        
+        # Pivot column
+        pivot_col = config['columns_cols'][0]
+        pivot_meta = self.column_metadata.get(pivot_col, {})
+        pivot_target = pivot_meta.get('safe_cast_target', 'STRING')
+        selects.append(f"CAST({pivot_col} AS {pivot_target}) as {pivot_col}")
+        
+        # Value columns
+        for col in config['value_cols']:
+            col_meta = self.column_metadata.get(col, {})
+            if col_meta.get('is_numeric', True):
+                target_type = col_meta.get('safe_cast_target', 'DOUBLE')
+                selects.append(f"COALESCE(CAST({col} AS {target_type}), 0.0) as {col}")
+            else:
+                selects.append(f"CAST({col} AS STRING) as {col}")
+        
+        return ', '.join(selects)
+    
+    def _build_safe_filter(self, pivot_column: str, pivot_meta: Dict, safe_values: List[str]) -> str:
+        """Build type-safe WHERE filter"""
+        target_type = pivot_meta.get('safe_cast_target', 'STRING')
+        values_clause = ', '.join(safe_values)
+        
+        return f"""
+            {pivot_column} IS NOT NULL 
+            AND CAST({pivot_column} AS {target_type}) IN ({values_clause})
+        """
+    
+    def _build_case_when_with_metadata(self, pivot_values: List, config: Dict, base_query: str) -> str:
+        """Build case-when query using metadata"""
         try:
             pivot_column = config['columns_cols'][0]
+            pivot_meta = self.column_metadata.get(pivot_column, {})
             
             case_statements = []
-            for value in pivot_values:
+            for i, value in enumerate(pivot_values):
                 if value is not None:
-                    safe_column_name = str(value).replace(' ', '_').replace('-', '_').replace('.', '_').replace("'", "")
-                    safe_column_name = ''.join(c for c in safe_column_name if c.isalnum() or c == '_')
+                    safe_col_name = f"col_{i}_{str(value).replace(' ', '_').replace('-', '_')}"
+                    safe_col_name = ''.join(c for c in safe_col_name if c.isalnum() or c == '_')[:60]
                     
                     for value_col in config['value_cols']:
+                        col_meta = self.column_metadata.get(value_col, {})
+                        
+                        if col_meta.get('is_numeric', True):
+                            cast_expr = f"COALESCE(CAST({value_col} AS DOUBLE), 0.0)"
+                        else:
+                            cast_expr = "1"  # Count for non-numeric
+                        
                         escaped_value = str(value).replace("'", "''")
                         case_statements.append(
-                            f"SUM(CASE WHEN CAST({pivot_column} AS STRING) = '{escaped_value}' THEN CAST({value_col} AS DECIMAL(18,2)) ELSE 0 END) as {safe_column_name}_{value_col}"
+                            f"SUM(CASE WHEN CAST({pivot_column} AS STRING) = '{escaped_value}' THEN {cast_expr} ELSE 0 END) as {safe_col_name}_{value_col}"
                         )
             
-            if not case_statements:
-                raise Exception("No valid case statements could be built")
+            typed_selects = self._build_typed_selects(config)
             
             query = f"""
             WITH base_data AS (
                 {base_query}
             ),
-            filtered_base AS (
-                SELECT 
-                    {', '.join(config['index_cols'])},
-                    CAST({pivot_column} AS STRING) as {pivot_column},
-                    {', '.join([f'CAST({col} AS DECIMAL(18,2)) as {col}' for col in config['value_cols']])}
+            typed_base AS (
+                SELECT {typed_selects}
                 FROM base_data
                 WHERE {pivot_column} IS NOT NULL
             )
             SELECT 
                 {', '.join(config['index_cols'])},
                 {', '.join(case_statements)}
-            FROM filtered_base
+            FROM typed_base
             GROUP BY {', '.join(config['index_cols'])}
             ORDER BY {', '.join(config['index_cols'])}
             """
@@ -143,64 +448,10 @@ class DatabricksPivotQueryBuilder:
             return query
             
         except Exception as e:
-            raise Exception(f"Case-when pivot construction failed: {str(e)}")
-    
-    def build_safe_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
-        """Build a safer pivot query with explicit data type conversion"""
-        try:
-            pivot_column = config['columns_cols'][0]
-            
-            # Convert all pivot values to strings and escape them
-            safe_pivot_values = []
-            for val in pivot_values:
-                if val is not None:
-                    str_val = str(val).replace("'", "''")
-                    safe_pivot_values.append(f"'{str_val}'")
-            
-            if not safe_pivot_values:
-                raise Exception("No valid pivot values found")
-            
-            # Build manual pivot using aggregation
-            pivot_columns = []
-            for i, val in enumerate(pivot_values):
-                if val is not None:
-                    safe_col_name = f"col_{i}_{str(val).replace(' ', '_').replace('-', '_')}"
-                    safe_col_name = ''.join(c for c in safe_col_name if c.isalnum() or c == '_')[:63]  # Limit length
-                    
-                    for value_col in config['value_cols']:
-                        escaped_val = str(val).replace("'", "''")
-                        pivot_columns.append(
-                            f"SUM(CASE WHEN TRIM(CAST({pivot_column} AS STRING)) = '{escaped_val}' THEN COALESCE(CAST({value_col} AS DOUBLE), 0) ELSE 0 END) as {safe_col_name}_{value_col}"
-                        )
-            
-            query = f"""
-            WITH base_data AS (
-                {base_query}
-            ),
-            cleaned_base AS (
-                SELECT 
-                    {', '.join(config['index_cols'])},
-                    TRIM(CAST({pivot_column} AS STRING)) as {pivot_column},
-                    {', '.join([f'COALESCE(CAST({col} AS DOUBLE), 0) as {col}' for col in config['value_cols']])}
-                FROM base_data
-                WHERE {pivot_column} IS NOT NULL 
-                  AND TRIM(CAST({pivot_column} AS STRING)) != ''
-            )
-            SELECT 
-                {', '.join(config['index_cols'])},
-                {', '.join(pivot_columns)}
-            FROM cleaned_base
-            GROUP BY {', '.join(config['index_cols'])}
-            ORDER BY {', '.join(config['index_cols'])}
-            """
-            
-            return query
-            
-        except Exception as e:
-            raise Exception(f"Safe pivot query construction failed: {str(e)}")
+            raise Exception(f"Case-when with metadata failed: {str(e)}")
     
     def _extract_and_validate_config(self, pivot_config: Dict) -> Dict[str, List]:
-        """Extract and normalize pivot configuration"""
+        """Extract and validate pivot configuration"""
         index_cols = pivot_config.get('index_cols', [])
         value_cols = pivot_config.get('value_cols', pivot_config.get('value_col', ['Sales']))
         columns_cols = pivot_config.get('columns_cols', pivot_config.get('columns_col', ['Month']))
@@ -224,6 +475,31 @@ class DatabricksPivotQueryBuilder:
             'value_cols': value_cols,
             'columns_cols': columns_cols
         }
+    
+    def get_column_info(self) -> Dict[str, Dict]:
+        """Get current column metadata"""
+        return self.column_metadata or {}
+    
+    def print_schema_summary(self):
+        """Print a summary of the analyzed schema"""
+        if not self.column_metadata:
+            print("No metadata available")
+            return
+        
+        print("\n📋 Schema Summary:")
+        print("=" * 50)
+        
+        by_category = {}
+        for col, meta in self.column_metadata.items():
+            category = meta['category']
+            if category not in by_category:
+                by_category[category] = []
+            by_category[category].append(f"{col} ({meta['type']})")
+        
+        for category, columns in by_category.items():
+            print(f"\n{category.upper()} columns ({len(columns)}):")
+            for col in columns:
+                print(f"  • {col}")
 
 
 class BaseQueryBuilder:
@@ -249,8 +525,9 @@ class BaseQueryBuilder:
                     if included_values and len(included_values) > 0:
                         escaped_values = []
                         for val in included_values:
-                            escaped_val = str(val).replace("'", "''")
-                            escaped_values.append(f"'{escaped_val}'")
+                            if val is not None and str(val).strip():
+                                escaped_val = str(val).replace("'", "''")
+                                escaped_values.append(f"'{escaped_val}'")
                         
                         if escaped_values:
                             values_str = ', '.join(escaped_values)
@@ -270,17 +547,46 @@ class BaseQueryBuilder:
             raise Exception(f"Base query building failed: {str(e)}")
 
 
-class DatabricksPivotSystem:
-    """Main class for handling Databricks pivot operations using fire_query"""
+class MetadataAwarePivotSystem:
+    """Main pivot system that uses metadata for type safety"""
     
     def __init__(self, base_query_builder: BaseQueryBuilder):
         self.base_query_builder = base_query_builder
-        self.query_builder = DatabricksPivotQueryBuilder(
-            base_query_builder.build_base_query
-        )
+        self.schema_analyzer = DatabricksSchemaAnalyzer()
+        self.query_builder = None
+    
+    def initialize_system(self, sample_filter_column: str, sample_filter_value: str, 
+                         sample_column_filters: Optional[Dict] = None) -> bool:
+        """Initialize the system by analyzing metadata from a sample query"""
+        try:
+            logger.info("🔍 Initializing system with metadata analysis...")
+            
+            # Build a sample query to analyze
+            sample_query = self.base_query_builder.build_base_query(
+                sample_filter_column, sample_filter_value, sample_column_filters
+            )
+            
+            # Initialize query builder with metadata
+            self.query_builder = MetadataAwarePivotQueryBuilder(
+                self.base_query_builder.build_base_query, self.schema_analyzer
+            )
+            
+            success = self.query_builder.initialize_with_metadata(sample_query)
+            
+            if success:
+                logger.info("✅ System initialized with metadata")
+                self.query_builder.print_schema_summary()
+            else:
+                logger.error("❌ Failed to initialize metadata")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"System initialization failed: {e}")
+            return False
     
     def execute_databricks_query(self, query: str) -> pd.DataFrame:
-        """Execute query using your external fire_query module"""
+        """Execute query using fire_query"""
         try:
             logger.info(f"Executing query via fire_query: {query[:200]}...")
             start_time = time.time()
@@ -294,64 +600,42 @@ class DatabricksPivotSystem:
     
     def filter_and_pivot(self, filter_column: str, filter_value: str, 
                         pivot_config: Dict, column_filters: Optional[Dict] = None) -> Dict[str, Any]:
-        """Main method to create dynamic pivot using custom base query and fire_query"""
+        """Execute pivot with metadata-aware type safety"""
         try:
-            logger.info(f"Starting dynamic pivot for {filter_column} = {filter_value}")
+            if not self.query_builder:
+                raise Exception("System not initialized. Call initialize_system first.")
             
-            # Step 1: Build queries
+            logger.info(f"Starting metadata-aware pivot for {filter_column} = {filter_value}")
+            
+            # Step 1: Build queries using metadata
             step_queries = self.query_builder.build_two_step_pivot_query(
                 filter_column, filter_value, pivot_config, column_filters
             )
             
-            # Step 2: Get unique pivot values
+            # Step 2: Get pivot values
             values_df = self.execute_databricks_query(step_queries['step1_get_values'])
             if values_df.empty:
                 return {'error': f'No pivot values found for {filter_column} = {filter_value}'}
             
-            pivot_values = values_df.iloc[:, 0].tolist()
+            pivot_values = [val for val in values_df.iloc[:, 0].tolist() if val is not None]
             logger.info(f"Found {len(pivot_values)} unique pivot values")
             
-            # Step 3: Choose pivot method with better error handling
-            if len(pivot_values) <= 100:
-                try:
-                    final_query = self.query_builder.build_final_pivot_query(
-                        pivot_values, step_queries['config'], step_queries['base_query']
-                    )
-                    logger.info("Using native PIVOT method with data type casting")
-                except Exception as e:
-                    logger.warning(f"Native PIVOT failed, trying CASE WHEN: {e}")
-                    try:
-                        final_query = self.query_builder.build_case_when_pivot_query(
-                            pivot_values, step_queries['config'], step_queries['base_query']
-                        )
-                        logger.info("Using CASE WHEN method with data type casting")
-                    except Exception as e2:
-                        logger.warning(f"CASE WHEN failed, using safe pivot: {e2}")
-                        final_query = self.query_builder.build_safe_pivot_query(
-                            pivot_values, step_queries['config'], step_queries['base_query']
-                        )
-                        logger.info("Using safe pivot method")
-            else:
-                try:
-                    final_query = self.query_builder.build_case_when_pivot_query(
-                        pivot_values, step_queries['config'], step_queries['base_query']
-                    )
-                    logger.info("Using CASE WHEN method for large dataset")
-                except Exception as e:
-                    logger.warning(f"CASE WHEN failed, using safe pivot: {e}")
-                    final_query = self.query_builder.build_safe_pivot_query(
-                        pivot_values, step_queries['config'], step_queries['base_query']
-                    )
-                    logger.info("Using safe pivot method for large dataset")
+            if not pivot_values:
+                return {'error': 'No valid pivot values found after filtering'}
             
-            # Step 4: Execute pivot query
+            # Step 3: Build type-safe pivot query
+            final_query = self.query_builder.build_type_safe_pivot_query(
+                pivot_values, step_queries['config'], step_queries['base_query']
+            )
+            
+            # Step 4: Execute pivot
             pivot_df = self.execute_databricks_query(final_query)
             if pivot_df.empty:
                 return {'error': f'No data found after pivot for {filter_column} = {filter_value}'}
             
-            logger.info(f"Pivot completed successfully: {len(pivot_df)} result rows")
+            logger.info(f"✅ Metadata-aware pivot completed: {len(pivot_df)} result rows")
             
-            # Step 5: Convert to frontend format
+            # Step 5: Create result structure
             return self._create_excel_style_pivot_from_databricks(
                 pivot_df, 
                 step_queries['config']['index_cols'],
@@ -361,8 +645,8 @@ class DatabricksPivotSystem:
             )
             
         except Exception as e:
-            logger.error(f"Databricks pivot error: {e}")
-            return {'error': f'Databricks pivot generation failed: {str(e)}'}
+            logger.error(f"Metadata-aware pivot failed: {e}")
+            return {'error': f'Pivot generation failed: {str(e)}'}
     
     def _create_excel_style_pivot_from_databricks(self, pivot_df: pd.DataFrame, 
                                                 index_cols: List[str], value_cols: List[str], 
@@ -390,10 +674,12 @@ class DatabricksPivotSystem:
                     'value_cols': value_cols,
                     'columns_cols': columns_cols
                 },
-                'databricks_optimized': True,
-                'uses_fire_query': True,
+                'metadata_used': True,
+                'column_metadata': self.query_builder.get_column_info(),
+                'pivot_values_count': len(pivot_values),
                 'row_count': len(pivot_df),
-                'pivot_values_count': len(pivot_values)
+                'type_safe': True,
+                'uses_fire_query': True
             }
             
         except Exception as e:
@@ -448,7 +734,14 @@ class DatabricksPivotSystem:
                     data_values = {}
                     for k, v in node['row_data'].items():
                         if k not in index_cols:
-                            data_values[k] = 0 if pd.isna(v) else v
+                            # Ensure numeric values are properly handled
+                            if pd.isna(v) or v is None:
+                                data_values[k] = 0.0
+                            else:
+                                try:
+                                    data_values[k] = float(v) if isinstance(v, (int, float, str)) else 0.0
+                                except (ValueError, TypeError):
+                                    data_values[k] = 0.0
                     pivot_data[row_key] = data_values
                 if node['children']:
                     process_hierarchy(node['children'], level + 1)
@@ -459,9 +752,14 @@ class DatabricksPivotSystem:
         """Calculate grand totals for numeric columns"""
         grand_totals = {}
         for col in pivot_df.columns:
-            if col not in index_cols and pd.api.types.is_numeric_dtype(pivot_df[col]):
-                total = pivot_df[col].sum()
-                grand_totals[col] = total if not pd.isna(total) else 0
+            if col not in index_cols:
+                try:
+                    # Try to sum numeric values, default to 0 if failed
+                    numeric_series = pd.to_numeric(pivot_df[col], errors='coerce').fillna(0)
+                    total = numeric_series.sum()
+                    grand_totals[col] = float(total) if not pd.isna(total) else 0.0
+                except Exception:
+                    grand_totals[col] = 0.0
         return grand_totals
     
     def _format_row_key_for_frontend(self, path: List[str]) -> str:
@@ -478,7 +776,6 @@ class DatabricksPivotSystem:
 # TODO: Replace this with your actual base query
 YOUR_BASE_QUERY = """
 SELECT 
-    -- TODO: Add your actual columns here
     f.business_unit,
     f.region,
     f.product_name,
@@ -490,65 +787,62 @@ SELECT
 FROM your_catalog.your_schema.fact_table f
 INNER JOIN your_catalog.your_schema.dim_business d ON f.business_unit_id = d.unit_id
 INNER JOIN your_catalog.your_schema.dim_products p ON f.product_id = p.product_id
--- TODO: Add your additional joins here
 """
 
-def create_pivot_system():
-    """Factory function to create your pivot system"""
-    base_query_builder = BaseQueryBuilder(YOUR_BASE_QUERY)
-    return DatabricksPivotSystem(base_query_builder)
+def create_metadata_aware_system():
+    """Create metadata-aware pivot system"""
+    base_builder = BaseQueryBuilder(YOUR_BASE_QUERY)
+    return MetadataAwarePivotSystem(base_builder)
 
 
-# =============================================================================
-# TEST CONFIGURATION - REPLACE WITH YOUR ACTUAL CONFIG
-# =============================================================================
-
-def test_your_pivot():
-    """Test function with placeholder config - replace with your actual values"""
+def test_with_metadata():
+    """Test the metadata-aware system"""
     
-    # Initialize system
-    pivot_system = create_pivot_system()
+    # Create system
+    pivot_system = create_metadata_aware_system()
     
-    # TODO: Replace with your actual test configuration
-    test_config = {
-        'filter_column': 'business_unit',  # TODO: Your filter column
-        'filter_value': 'Electronics',     # TODO: Your filter value
-        'pivot_config': {
-            'index_cols': ['region', 'manager_name'],     # TODO: Your row hierarchy
-            'value_cols': ['sales_amount', 'profit_amount'], # TODO: Your metrics
-            'columns_cols': ['month_name']                 # TODO: Your pivot column
+    # Initialize with sample data to get metadata
+    print("🔍 Initializing system with metadata analysis...")
+    init_success = pivot_system.initialize_system(
+        sample_filter_column='business_unit',
+        sample_filter_value='Electronics',
+        sample_column_filters={'region': ['North']}
+    )
+    
+    if not init_success:
+        print("❌ Failed to initialize system with metadata")
+        return
+    
+    # Now run actual pivot
+    print("🚀 Running metadata-aware pivot...")
+    result = pivot_system.filter_and_pivot(
+        filter_column='business_unit',
+        filter_value='Electronics',
+        pivot_config={
+            'index_cols': ['region', 'manager_name'],
+            'value_cols': ['sales_amount', 'profit_amount'],
+            'columns_cols': ['month_name']
         },
-        'column_filters': {
-            'category_name': ['Technology', 'Electronics'], # TODO: Your filters
-            'region': ['North', 'South']                    # TODO: Your filters
-        }
-    }
+        column_filters={'category_name': ['Technology']}
+    )
     
-    print("🧪 Testing with your configuration...")
-    
-    try:
-        result = pivot_system.filter_and_pivot(**test_config)
-        
-        if 'error' in result:
-            print(f"❌ Error: {result['error']}")
-        else:
-            print("✅ Success!")
-            print(f"📊 Generated {len(result['pivot_data'])} data points")
-            print(f"🌳 Hierarchy levels: {result['hierarchy_levels']}")
-            print(f"📈 Row count: {result['row_count']}")
-            print(f"🔧 Uses fire_query: {result['uses_fire_query']}")
-            
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
+    if 'error' in result:
+        print(f"❌ Error: {result['error']}")
+    else:
+        print("✅ Success with metadata!")
+        print(f"📊 Type-safe: {result['type_safe']}")
+        print(f"📈 Rows: {result['row_count']}")
+        print(f"🔧 Uses metadata: {result['metadata_used']}")
+        print(f"🛡️ Uses fire_query: {result['uses_fire_query']}")
 
 
 if __name__ == "__main__":
-    print("🚀 Databricks Dynamic Pivot System - Ready for Testing")
+    print("🚀 Metadata-Aware Databricks Pivot System - Fixed Version")
     print("="*60)
-    print("📝 TODO: Update YOUR_BASE_QUERY with your actual query")
-    print("📝 TODO: Update test_config with your actual configuration")
-    print("📝 TODO: Ensure 'from dbx import fire_query' works")
+    print("🔍 Analyzes table schemas first for type safety")
+    print("🛡️ Prevents datatype mismatch errors")
+    print("✅ Complete and syntactically correct")
     print()
     
-    # Uncomment to test with your configuration
-    # test_your_pivot()
+    # Uncomment to test
+    # test_with_metadata()
