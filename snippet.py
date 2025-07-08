@@ -1,14 +1,22 @@
 """
-Complete Databricks Dynamic Pivot Module with Base Query Support
-Fully dynamic pivot table generation using custom base queries with multiple joins
+Complete Databricks Dynamic Pivot Module using External Query Module
+Fully dynamic pivot table generation using custom base queries with external dbx module
 """
 
 import pandas as pd
 import json
 import time
 from typing import Dict, List, Any, Optional, Tuple, Callable
-from databricks import sql
 import logging
+
+# Import your existing Databricks query module
+try:
+    from dbx import fire_query
+except ImportError:
+    # Fallback for testing - replace with your actual import
+    def fire_query(sql_query: str) -> pd.DataFrame:
+        """Placeholder function - replace with your actual dbx.fire_query import"""
+        raise ImportError("Please ensure 'from dbx import fire_query' is available")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -293,71 +301,44 @@ class BaseQueryBuilder:
 
 
 class DatabricksPivotSystem:
-    """Main class for handling Databricks pivot operations with custom base queries"""
+    """Main class for handling Databricks pivot operations using external fire_query module"""
     
-    def __init__(self, databricks_config: Dict, base_query_builder: BaseQueryBuilder):
+    def __init__(self, base_query_builder: BaseQueryBuilder):
         """
-        Initialize with Databricks config and base query builder
+        Initialize with base query builder - no Databricks config needed
         
         Args:
-            databricks_config: Databricks connection configuration
             base_query_builder: Instance of BaseQueryBuilder with your custom query
         """
-        self.databricks_config = databricks_config
         self.base_query_builder = base_query_builder
         
         # Initialize query builder with base query function
         self.query_builder = DatabricksPivotQueryBuilder(
             base_query_builder.build_base_query
         )
-        
-    def get_databricks_connection(self):
-        """Get or create Databricks connection"""
-        try:
-            connection = sql.connect(
-                server_hostname=self.databricks_config['server_hostname'],
-                http_path=self.databricks_config['http_path'],
-                access_token=self.databricks_config['access_token']
-            )
-            return connection
-        except Exception as e:
-            logger.error(f"Failed to connect to Databricks: {e}")
-            raise
     
     def execute_databricks_query(self, query: str) -> pd.DataFrame:
-        """Execute query and return pandas DataFrame"""
-        connection = None
+        """Execute query using your external fire_query module"""
         try:
-            logger.info(f"Executing query: {query[:200]}...")
+            logger.info(f"Executing query via fire_query: {query[:200]}...")
             
-            connection = self.get_databricks_connection()
-            with connection.cursor() as cursor:
-                start_time = time.time()
-                cursor.execute(query)
-                
-                # Get column names
-                columns = [desc[0] for desc in cursor.description]
-                
-                # Fetch all rows
-                rows = cursor.fetchall()
-                
-                execution_time = time.time() - start_time
-                logger.info(f"Query executed in {execution_time:.2f} seconds, returned {len(rows)} rows")
-                
-                # Convert to pandas DataFrame
-                df = pd.DataFrame(rows, columns=columns)
-                return df
+            start_time = time.time()
+            
+            # Use your existing fire_query function
+            df = fire_query(query)
+            
+            execution_time = time.time() - start_time
+            logger.info(f"Query executed in {execution_time:.2f} seconds, returned {len(df)} rows")
+            
+            return df
                 
         except Exception as e:
             logger.error(f"Query execution failed: {e}")
             raise
-        finally:
-            if connection:
-                connection.close()
     
     def filter_and_pivot(self, filter_column: str, filter_value: str, 
                         pivot_config: Dict, column_filters: Optional[Dict] = None) -> Dict[str, Any]:
-        """Main method to create dynamic pivot using custom base query"""
+        """Main method to create dynamic pivot using custom base query and fire_query"""
         try:
             logger.info(f"Starting dynamic pivot for {filter_column} = {filter_value}")
             
@@ -369,8 +350,8 @@ class DatabricksPivotSystem:
             logger.info("Generated base query:")
             logger.info(step_queries['base_query'][:500] + "...")
             
-            # Step 2: Get unique pivot values from your base query result
-            logger.info("Getting unique pivot values from base query...")
+            # Step 2: Get unique pivot values using fire_query
+            logger.info("Getting unique pivot values from base query using fire_query...")
             values_df = self.execute_databricks_query(step_queries['step1_get_values'])
             
             if values_df.empty:
@@ -400,8 +381,8 @@ class DatabricksPivotSystem:
                 )
                 logger.info("Using CASE WHEN method for large dataset with base query")
             
-            # Step 4: Execute pivot query
-            logger.info("Executing final pivot query with base query...")
+            # Step 4: Execute pivot query using fire_query
+            logger.info("Executing final pivot query with base query using fire_query...")
             pivot_df = self.execute_databricks_query(final_query)
             
             if pivot_df.empty:
@@ -427,7 +408,7 @@ class DatabricksPivotSystem:
     def get_sample_pivot(self, filter_column: str, filter_value: str, 
                         pivot_config: Dict, column_filters: Optional[Dict] = None,
                         sample_percentage: float = 0.1) -> Dict[str, Any]:
-        """Get a quick sample pivot for preview using base query"""
+        """Get a quick sample pivot for preview using base query and fire_query"""
         try:
             logger.info(f"Generating sample pivot ({sample_percentage*100}%) for {filter_column} = {filter_value}")
             
@@ -437,7 +418,7 @@ class DatabricksPivotSystem:
             # Build sample query
             sample_query = self.query_builder.build_sample_pivot_query(config, base_query, sample_percentage)
             
-            # Execute sample query
+            # Execute sample query using fire_query
             sample_df = self.execute_databricks_query(sample_query)
             
             if sample_df.empty:
@@ -455,6 +436,25 @@ class DatabricksPivotSystem:
         except Exception as e:
             logger.error(f"Sample pivot error: {e}")
             return {'error': f'Sample pivot generation failed: {str(e)}'}
+    
+    def test_query_execution(self, test_query: str = "SELECT 1 as test_col") -> Dict[str, Any]:
+        """Test your fire_query function with a simple query"""
+        try:
+            logger.info("Testing fire_query function...")
+            df = self.execute_databricks_query(test_query)
+            
+            return {
+                'success': True,
+                'message': 'fire_query function working correctly',
+                'test_result': df.to_dict('records'),
+                'row_count': len(df)
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'fire_query test failed: {str(e)}',
+                'error': str(e)
+            }
     
     # Keep all the _create_excel_style_pivot_from_databricks and helper methods from previous version
     def _create_excel_style_pivot_from_databricks(self, pivot_df: pd.DataFrame, 
@@ -627,16 +627,11 @@ class DatabricksPivotSystem:
 
 # Sample execution and testing with base queries
 def main():
-    """Sample execution sequence with custom base queries - no table mappings"""
+    """Sample execution sequence using fire_query module"""
     
-    # Configuration
-    databricks_config = {
-        'server_hostname': 'your-databricks-hostname.databricks.com',
-        'http_path': '/sql/1.0/warehouses/your-warehouse-id',
-        'access_token': 'your-databricks-token'
-    }
+    # No Databricks configuration needed - using your fire_query module
     
-    # Example 1: Simple base query with actual table names
+    # Example base queries with direct table names
     simple_base_query = """
     SELECT 
         f.business_unit,
@@ -654,7 +649,6 @@ def main():
     JOIN analytics_db.dim_products p ON f.product = p.product_name
     """
     
-    # Example 2: Complex base query with multiple joins and calculations
     complex_base_query = """
     SELECT 
         f.business_unit,
@@ -683,12 +677,12 @@ def main():
     LEFT JOIN external_sources.monthly_targets et ON f.business_unit = et.unit AND f.month = et.target_month
     """
     
-    print("🚀 Initializing Databricks Pivot System with Direct Table Names...")
+    print("🚀 Initializing Databricks Pivot System with fire_query module...")
     
-    # Test cases with different base queries
+    # Test cases using fire_query
     test_cases = [
         {
-            'name': 'Simple Join Base Query',
+            'name': 'Simple Join Base Query with fire_query',
             'base_query': simple_base_query,
             'filter_column': 'business_unit',
             'filter_value': 'Electronics',
@@ -703,7 +697,7 @@ def main():
             }
         },
         {
-            'name': 'Complex Multi-Join Base Query',
+            'name': 'Complex Multi-Join Base Query with fire_query',
             'base_query': complex_base_query,
             'filter_column': 'business_unit',
             'filter_value': 'Electronics',
@@ -716,18 +710,6 @@ def main():
                 'performance_tier': ['High', 'Medium'],
                 'category': ['Technology']
             }
-        },
-        {
-            'name': 'Custom Calculated Fields',
-            'base_query': complex_base_query,
-            'filter_column': 'region',
-            'filter_value': 'North',
-            'pivot_config': {
-                'index_cols': ['business_unit', 'manager'],
-                'value_cols': ['avg_price', 'profit'],
-                'columns_cols': ['performance_tier']
-            },
-            'column_filters': None
         }
     ]
     
@@ -737,15 +719,23 @@ def main():
         print("="*60)
         
         try:
-            # Initialize base query builder (no table mappings needed)
+            # Initialize base query builder (no Databricks config needed)
             base_query_builder = BaseQueryBuilder(test_case['base_query'])
             
-            # Initialize pivot system
-            pivot_system = DatabricksPivotSystem(databricks_config, base_query_builder)
+            # Initialize pivot system (no Databricks config needed)
+            pivot_system = DatabricksPivotSystem(base_query_builder)
+            
+            # Test fire_query function first
+            test_result = pivot_system.test_query_execution()
+            if not test_result['success']:
+                print(f"❌ fire_query test failed: {test_result['message']}")
+                continue
+            
+            print("✅ fire_query function working correctly")
             
             start_time = time.time()
             
-            # Execute pivot
+            # Execute pivot using fire_query
             result = pivot_system.filter_and_pivot(
                 filter_column=test_case['filter_column'],
                 filter_value=test_case['filter_value'],
@@ -758,28 +748,23 @@ def main():
             if 'error' in result:
                 print(f"❌ Error: {result['error']}")
             else:
-                print(f"✅ Success in {execution_time:.2f} seconds")
+                print(f"✅ Success in {execution_time:.2f} seconds using fire_query")
                 print(f"   📈 Rows in result: {result.get('row_count', 'Unknown')}")
                 print(f"   🏗️  Hierarchy levels: {len(result.get('hierarchy_levels', []))}")
                 print(f"   📊 Pivot values: {result.get('pivot_values_count', 'Unknown')}")
                 print(f"   🔗 Data points: {len(result.get('pivot_data', {}))}")
-                print(f"   🎯 Uses base query: {result.get('uses_base_query', False)}")
-                
-                # Sample of hierarchy structure
-                if result.get('row_hierarchy'):
-                    hierarchy_sample = list(result['row_hierarchy'].keys())[:3]
-                    print(f"   🌳 Sample hierarchy: {hierarchy_sample}")
+                print(f"   🎯 Uses fire_query: True")
         
         except Exception as e:
             print(f"❌ Test case failed: {e}")
     
-    print(f"\n🎉 Base Query Databricks Pivot System testing completed!")
+    print(f"\n🎉 fire_query Databricks Pivot System testing completed!")
 
 
-def demo_base_query_builder():
-    """Demonstrate base query building without table mappings"""
-    print("\n🔧 Base Query Builder Demo - Direct Table Names")
-    print("="*50)
+def demo_fire_query_integration():
+    """Demonstrate integration with fire_query module"""
+    print("\n🔧 fire_query Integration Demo")
+    print("="*40)
     
     # Your actual base query with direct table names
     your_base_query = """
@@ -811,10 +796,21 @@ def demo_base_query_builder():
     LEFT JOIN external_warehouse.budget_targets eb ON f.business_unit = eb.unit AND f.month = eb.budget_month
     """
     
-    # Initialize without table mappings
-    base_query_builder = BaseQueryBuilder(your_base_query)
-    
     try:
+        # Initialize without any Databricks configuration
+        base_query_builder = BaseQueryBuilder(your_base_query)
+        pivot_system = DatabricksPivotSystem(base_query_builder)
+        
+        # Test fire_query function
+        print("🧪 Testing fire_query function...")
+        test_result = pivot_system.test_query_execution("SELECT 'fire_query_works' as status, current_timestamp() as test_time")
+        
+        if test_result['success']:
+            print(f"✅ fire_query test successful: {test_result['test_result']}")
+        else:
+            print(f"❌ fire_query test failed: {test_result['message']}")
+            return
+        
         # Test base query generation
         sample_filters = {
             'region': ['North', 'South'],
@@ -826,11 +822,11 @@ def demo_base_query_builder():
             'business_unit', 'Electronics', sample_filters
         )
         
-        print("📝 Generated Base Query:")
+        print("\n📝 Generated Base Query:")
         print(final_query)
         print()
         
-        # Show how it integrates with pivot builder
+        # Show pivot integration
         query_builder = DatabricksPivotQueryBuilder(base_query_builder.build_base_query)
         
         sample_config = {
@@ -843,32 +839,32 @@ def demo_base_query_builder():
             'business_unit', 'Electronics', sample_config, sample_filters
         )
         
-        print("📝 Step 1 - Get Pivot Values (using base query):")
+        print("📝 Step 1 Query (will use fire_query):")
         print(step_queries['step1_get_values'])
         print()
         
-        print("📝 Base Query Used:")
-        print(step_queries['base_query'][:500] + "...")
+        print("✅ Ready to execute with your fire_query module!")
         
     except Exception as e:
         print(f"❌ Demo failed: {e}")
+        print("Make sure 'from dbx import fire_query' is available")
 
 
 if __name__ == "__main__":
-    print("🚀 Databricks Dynamic Pivot System with Base Queries")
-    print("="*60)
+    print("🚀 Databricks Dynamic Pivot System with fire_query")
+    print("="*55)
     
-    # Run base query builder demo (safe to run without Databricks connection)
-    demo_base_query_builder()
+    # Run fire_query integration demo (safe to run)
+    demo_fire_query_integration()
     
-    # Uncomment to run full tests (requires valid Databricks connection)
+    # Uncomment to run full tests (requires fire_query module and data)
     # main()
     
-    print(f"\n💡 Integration Notes for Your Base Query:")
-    print("1. Replace base query template with your actual multi-join query")
-    print("2. Use #table_name# placeholders for dynamic table mapping")
-    print("3. Update table_mappings with your actual table names")
-    print("4. Your base query can include any complexity: joins, calculations, CTEs")
+    print(f"\n💡 Integration Notes for fire_query Module:")
+    print("1. Import: from dbx import fire_query")
+    print("2. No Databricks configuration needed in this module")
+    print("3. fire_query(sql_query) -> returns pandas DataFrame")
+    print("4. Use your actual table names directly in base query")
     print("5. Column filters are automatically applied to your base query")
     print("6. Frontend requires no changes - same API response format!")
-    print("7. Performance: Base query + Pivot = 30 seconds - 2 minutes vs 5-10 minutes")
+    print("7. Performance: fire_query + Pivot = 30 seconds - 2 minutes vs 5-10 minutes")
