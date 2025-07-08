@@ -228,18 +228,16 @@ class DatabricksPivotQueryBuilder:
 
 
 class BaseQueryBuilder:
-    """Class to build your custom base queries with multiple joins"""
+    """Class to build your custom base queries with multiple joins - no table mappings"""
     
-    def __init__(self, base_query_template: str, table_mappings: Optional[Dict] = None):
+    def __init__(self, base_query_template: str):
         """
-        Initialize with base query template
+        Initialize with base query template using direct table names
         
         Args:
-            base_query_template: Your base query with placeholders for filters
-            table_mappings: Optional mapping of table aliases to actual table names
+            base_query_template: Your base query with actual table names
         """
         self.base_query_template = base_query_template
-        self.table_mappings = table_mappings or {}
     
     def build_base_query(self, filter_column: str, filter_value: str, 
                         column_filters: Optional[Dict] = None) -> str:
@@ -255,12 +253,8 @@ class BaseQueryBuilder:
             Complete SQL query string
         """
         try:
-            # Start with base template
+            # Start with base template (already has actual table names)
             query = self.base_query_template
-            
-            # Apply table mappings if provided
-            for alias, table_name in self.table_mappings.items():
-                query = query.replace(f"#{alias}#", table_name)
             
             # Build WHERE conditions
             where_conditions = []
@@ -633,7 +627,7 @@ class DatabricksPivotSystem:
 
 # Sample execution and testing with base queries
 def main():
-    """Sample execution sequence with custom base queries"""
+    """Sample execution sequence with custom base queries - no table mappings"""
     
     # Configuration
     databricks_config = {
@@ -642,7 +636,7 @@ def main():
         'access_token': 'your-databricks-token'
     }
     
-    # Example 1: Simple base query with joins
+    # Example 1: Simple base query with actual table names
     simple_base_query = """
     SELECT 
         f.business_unit,
@@ -655,9 +649,9 @@ def main():
         d.budget,
         p.category,
         p.sub_category
-    FROM #fact_table# f
-    JOIN #dim_business# d ON f.business_unit = d.business_unit
-    JOIN #dim_product# p ON f.product = p.product_name
+    FROM analytics_db.fact_sales f
+    JOIN analytics_db.dim_business_units d ON f.business_unit = d.business_unit
+    JOIN analytics_db.dim_products p ON f.product = p.product_name
     """
     
     # Example 2: Complex base query with multiple joins and calculations
@@ -682,30 +676,20 @@ def main():
             WHEN f.sales >= d.budget * 0.05 THEN 'Medium'
             ELSE 'Low'
         END as performance_tier
-    FROM #fact_table# f
-    JOIN #dim_business# d ON f.business_unit = d.business_unit
-    JOIN #dim_product# p ON f.product = p.product_name
-    JOIN #dim_region# r ON f.region = r.region_name
-    LEFT JOIN #external_targets# et ON f.business_unit = et.unit AND f.month = et.target_month
+    FROM sales_data.fact_sales f
+    JOIN sales_data.dim_business_units d ON f.business_unit = d.business_unit
+    JOIN sales_data.dim_products p ON f.product = p.product_name
+    JOIN sales_data.dim_regions r ON f.region = r.region_name
+    LEFT JOIN external_sources.monthly_targets et ON f.business_unit = et.unit AND f.month = et.target_month
     """
     
-    # Table mappings
-    table_mappings = {
-        'fact_table': 'sales_data.fact_sales',
-        'dim_business': 'sales_data.dim_business_units',
-        'dim_product': 'sales_data.dim_products',
-        'dim_region': 'sales_data.dim_regions',
-        'external_targets': 'external_sources.monthly_targets'
-    }
-    
-    print("🚀 Initializing Databricks Pivot System with Base Queries...")
+    print("🚀 Initializing Databricks Pivot System with Direct Table Names...")
     
     # Test cases with different base queries
     test_cases = [
         {
             'name': 'Simple Join Base Query',
             'base_query': simple_base_query,
-            'table_mappings': table_mappings,
             'filter_column': 'business_unit',
             'filter_value': 'Electronics',
             'pivot_config': {
@@ -721,7 +705,6 @@ def main():
         {
             'name': 'Complex Multi-Join Base Query',
             'base_query': complex_base_query,
-            'table_mappings': table_mappings,
             'filter_column': 'business_unit',
             'filter_value': 'Electronics',
             'pivot_config': {
@@ -737,7 +720,6 @@ def main():
         {
             'name': 'Custom Calculated Fields',
             'base_query': complex_base_query,
-            'table_mappings': table_mappings,
             'filter_column': 'region',
             'filter_value': 'North',
             'pivot_config': {
@@ -755,11 +737,8 @@ def main():
         print("="*60)
         
         try:
-            # Initialize base query builder
-            base_query_builder = BaseQueryBuilder(
-                test_case['base_query'],
-                test_case['table_mappings']
-            )
+            # Initialize base query builder (no table mappings needed)
+            base_query_builder = BaseQueryBuilder(test_case['base_query'])
             
             # Initialize pivot system
             pivot_system = DatabricksPivotSystem(databricks_config, base_query_builder)
@@ -798,11 +777,11 @@ def main():
 
 
 def demo_base_query_builder():
-    """Demonstrate base query building without execution"""
-    print("\n🔧 Base Query Builder Demo")
-    print("="*40)
+    """Demonstrate base query building without table mappings"""
+    print("\n🔧 Base Query Builder Demo - Direct Table Names")
+    print("="*50)
     
-    # Your actual base query template
+    # Your actual base query with direct table names
     your_base_query = """
     SELECT 
         f.business_unit,
@@ -825,22 +804,15 @@ def demo_base_query_builder():
             ELSE 'Poor'
         END as performance_rating,
         f.sales * p.profit_margin as calculated_profit
-    FROM #fact_sales# f
-    INNER JOIN #dim_business_unit# d ON f.business_unit = d.unit_name
-    INNER JOIN #dim_product# p ON f.product = p.product_name
-    LEFT JOIN #dim_region# r ON f.region = r.region_code
-    LEFT JOIN #external_budget# eb ON f.business_unit = eb.unit AND f.month = eb.budget_month
+    FROM analytics_warehouse.fact_sales_data f
+    INNER JOIN analytics_warehouse.dim_business_units d ON f.business_unit = d.unit_name
+    INNER JOIN analytics_warehouse.dim_product_catalog p ON f.product = p.product_name
+    LEFT JOIN analytics_warehouse.dim_regions r ON f.region = r.region_code
+    LEFT JOIN external_warehouse.budget_targets eb ON f.business_unit = eb.unit AND f.month = eb.budget_month
     """
     
-    table_mappings = {
-        'fact_sales': 'analytics_db.fact_sales_data',
-        'dim_business_unit': 'analytics_db.dim_business_units',
-        'dim_product': 'analytics_db.dim_product_catalog',
-        'dim_region': 'analytics_db.dim_regions',
-        'external_budget': 'external_db.budget_targets'
-    }
-    
-    base_query_builder = BaseQueryBuilder(your_base_query, table_mappings)
+    # Initialize without table mappings
+    base_query_builder = BaseQueryBuilder(your_base_query)
     
     try:
         # Test base query generation
