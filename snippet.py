@@ -1,12 +1,12 @@
 """
-Complete Databricks Dynamic Pivot Module
-Fully dynamic pivot table generation using Databricks SQL with no hardcoded values
+Complete Databricks Dynamic Pivot Module with Base Query Support
+Fully dynamic pivot table generation using custom base queries with multiple joins
 """
 
 import pandas as pd
 import json
 import time
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Callable
 from databricks import sql
 import logging
 
@@ -15,25 +15,37 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DatabricksPivotQueryBuilder:
-    """Dynamic query builder for Databricks PIVOT operations"""
+    """Dynamic query builder for Databricks PIVOT operations using base queries"""
     
-    def __init__(self, fact_table_name: str):
-        self.fact_table_name = fact_table_name
+    def __init__(self, base_query_builder: Callable[[str, str, Optional[Dict]], str]):
+        """
+        Initialize with a base query builder function
+        
+        Args:
+            base_query_builder: Function that takes (filter_column, filter_value, column_filters) 
+                               and returns the base query string
+        """
+        self.base_query_builder = base_query_builder
     
     def build_two_step_pivot_query(self, filter_column: str, filter_value: str, 
                                  pivot_config: Dict, column_filters: Optional[Dict] = None) -> Dict[str, Any]:
-        """Build query in two steps: 1) Get pivot values, 2) Build actual pivot"""
+        """Build query in two steps using base query: 1) Get pivot values, 2) Build actual pivot"""
         try:
             config = self._extract_and_validate_config(pivot_config)
-            where_clause = self._build_where_clause(filter_column, filter_value, column_filters)
+            
+            # Get base query from your custom builder
+            base_query = self.base_query_builder(filter_column, filter_value, column_filters)
+            
             pivot_column = config['columns_cols'][0]
             
-            # Step 1: Query to get unique pivot values
+            # Step 1: Query to get unique pivot values from base query result
             values_query = f"""
+            WITH base_data AS (
+                {base_query}
+            )
             SELECT DISTINCT {pivot_column}
-            FROM {self.fact_table_name}
-            WHERE {where_clause}
-              AND {pivot_column} IS NOT NULL
+            FROM base_data
+            WHERE {pivot_column} IS NOT NULL
             ORDER BY {pivot_column}
             LIMIT 500
             """
@@ -41,15 +53,15 @@ class DatabricksPivotQueryBuilder:
             return {
                 'step1_get_values': values_query,
                 'config': config,
-                'where_clause': where_clause,
+                'base_query': base_query,
                 'pivot_column': pivot_column
             }
             
         except Exception as e:
             raise Exception(f"Two-step query construction failed: {str(e)}")
     
-    def build_final_pivot_query(self, pivot_values: List, config: Dict, where_clause: str) -> str:
-        """Build final pivot query with actual pivot values"""
+    def build_final_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
+        """Build final pivot query with actual pivot values using base query"""
         try:
             pivot_column = config['columns_cols'][0]
             
@@ -71,17 +83,20 @@ class DatabricksPivotQueryBuilder:
             for value_col in config['value_cols']:
                 aggregations.append(f"SUM({value_col}) as sum_{value_col}")
             
+            # Use base query as CTE and pivot the results
             query = f"""
             WITH base_data AS (
+                {base_query}
+            ),
+            filtered_base AS (
                 SELECT 
                     {', '.join(config['index_cols'])},
                     {pivot_column},
                     {', '.join(config['value_cols'])}
-                FROM {self.fact_table_name}
-                WHERE {where_clause}
-                  AND {pivot_column} IS NOT NULL
+                FROM base_data
+                WHERE {pivot_column} IS NOT NULL
             )
-            SELECT * FROM base_data
+            SELECT * FROM filtered_base
             PIVOT (
                 {', '.join(aggregations)}
                 FOR {pivot_column} IN ({pivot_in_clause})
@@ -94,8 +109,8 @@ class DatabricksPivotQueryBuilder:
         except Exception as e:
             raise Exception(f"Final pivot query construction failed: {str(e)}")
     
-    def build_case_when_pivot_query(self, pivot_values: List, config: Dict, where_clause: str) -> str:
-        """Build pivot using CASE WHEN statements for maximum compatibility"""
+    def build_case_when_pivot_query(self, pivot_values: List, config: Dict, base_query: str) -> str:
+        """Build pivot using CASE WHEN statements for maximum compatibility with base query"""
         try:
             pivot_column = config['columns_cols'][0]
             
@@ -116,13 +131,23 @@ class DatabricksPivotQueryBuilder:
             if not case_statements:
                 raise Exception("No valid case statements could be built")
             
+            # Use base query as CTE and apply CASE WHEN logic
             query = f"""
+            WITH base_data AS (
+                {base_query}
+            ),
+            filtered_base AS (
+                SELECT 
+                    {', '.join(config['index_cols'])},
+                    {pivot_column},
+                    {', '.join(config['value_cols'])}
+                FROM base_data
+                WHERE {pivot_column} IS NOT NULL
+            )
             SELECT 
                 {', '.join(config['index_cols'])},
                 {', '.join(case_statements)}
-            FROM {self.fact_table_name}
-            WHERE {where_clause}
-              AND {pivot_column} IS NOT NULL
+            FROM filtered_base
             GROUP BY {', '.join(config['index_cols'])}
             ORDER BY {', '.join(config['index_cols'])}
             """
@@ -131,6 +156,46 @@ class DatabricksPivotQueryBuilder:
             
         except Exception as e:
             raise Exception(f"Case-when pivot construction failed: {str(e)}")
+    
+    def build_sample_pivot_query(self, config: Dict, base_query: str, sample_percentage: float = 0.1) -> str:
+        """Build a sample query for quick preview using base query"""
+        try:
+            pivot_column = config['columns_cols'][0]
+            
+            # Add sampling to base query
+            sample_query = f"""
+            WITH base_data AS (
+                {base_query}
+            ),
+            sampled_data AS (
+                SELECT 
+                    {', '.join(config['index_cols'])},
+                    {pivot_column},
+                    {', '.join(config['value_cols'])}
+                FROM base_data
+                WHERE {pivot_column} IS NOT NULL
+                  AND rand() < {sample_percentage}
+                LIMIT 10000
+            ),
+            pivot_values AS (
+                SELECT COLLECT_LIST(DISTINCT {pivot_column}) as pivot_cols
+                FROM sampled_data
+            )
+            SELECT 
+                {', '.join(config['index_cols'])},
+                MAP_FROM_ARRAYS(
+                    COLLECT_LIST({pivot_column}),
+                    COLLECT_LIST({config['value_cols'][0]})
+                ) as pivot_data
+            FROM sampled_data
+            GROUP BY {', '.join(config['index_cols'])}
+            ORDER BY {', '.join(config['index_cols'])}
+            """
+            
+            return sample_query
+            
+        except Exception as e:
+            raise Exception(f"Sample query construction failed: {str(e)}")
     
     def _extract_and_validate_config(self, pivot_config: Dict) -> Dict[str, List]:
         """Extract and normalize pivot configuration"""
@@ -160,38 +225,97 @@ class DatabricksPivotQueryBuilder:
             'value_cols': value_cols,
             'columns_cols': columns_cols
         }
+
+
+class BaseQueryBuilder:
+    """Class to build your custom base queries with multiple joins"""
     
-    def _build_where_clause(self, filter_column: str, filter_value: str, 
-                          column_filters: Optional[Dict] = None) -> str:
-        """Build WHERE clause with main filter and column filters"""
-        # Escape the main filter value
-        escaped_filter_value = str(filter_value).replace("'", "''")
-        where_conditions = [f"{filter_column} = '{escaped_filter_value}'"]
+    def __init__(self, base_query_template: str, table_mappings: Optional[Dict] = None):
+        """
+        Initialize with base query template
         
-        if column_filters:
-            for col, included_values in column_filters.items():
-                if included_values and len(included_values) > 0:
-                    # Handle different data types
-                    escaped_values = []
-                    for val in included_values:
-                        escaped_val = str(val).replace("'", "''")
-                        escaped_values.append(f"'{escaped_val}'")
-                    
-                    if escaped_values:
-                        values_str = ', '.join(escaped_values)
-                        where_conditions.append(f"{col} IN ({values_str})")
+        Args:
+            base_query_template: Your base query with placeholders for filters
+            table_mappings: Optional mapping of table aliases to actual table names
+        """
+        self.base_query_template = base_query_template
+        self.table_mappings = table_mappings or {}
+    
+    def build_base_query(self, filter_column: str, filter_value: str, 
+                        column_filters: Optional[Dict] = None) -> str:
+        """
+        Build the complete base query with all joins and filters applied
         
-        return ' AND '.join(where_conditions)
+        Args:
+            filter_column: Primary filter column
+            filter_value: Primary filter value
+            column_filters: Additional column filters
+            
+        Returns:
+            Complete SQL query string
+        """
+        try:
+            # Start with base template
+            query = self.base_query_template
+            
+            # Apply table mappings if provided
+            for alias, table_name in self.table_mappings.items():
+                query = query.replace(f"#{alias}#", table_name)
+            
+            # Build WHERE conditions
+            where_conditions = []
+            
+            # Primary filter
+            escaped_filter_value = str(filter_value).replace("'", "''")
+            where_conditions.append(f"{filter_column} = '{escaped_filter_value}'")
+            
+            # Additional column filters
+            if column_filters:
+                for col, included_values in column_filters.items():
+                    if included_values and len(included_values) > 0:
+                        escaped_values = []
+                        for val in included_values:
+                            escaped_val = str(val).replace("'", "''")
+                            escaped_values.append(f"'{escaped_val}'")
+                        
+                        if escaped_values:
+                            values_str = ', '.join(escaped_values)
+                            where_conditions.append(f"{col} IN ({values_str})")
+            
+            # Apply WHERE conditions to base query
+            if where_conditions:
+                where_clause = ' AND '.join(where_conditions)
+                
+                # Check if query already has WHERE clause
+                if 'WHERE' in query.upper():
+                    query += f" AND ({where_clause})"
+                else:
+                    query += f" WHERE {where_clause}"
+            
+            return query
+            
+        except Exception as e:
+            raise Exception(f"Base query building failed: {str(e)}")
 
 
 class DatabricksPivotSystem:
-    """Main class for handling Databricks pivot operations with frontend integration"""
+    """Main class for handling Databricks pivot operations with custom base queries"""
     
-    def __init__(self, databricks_config: Dict, fact_table_name: str):
+    def __init__(self, databricks_config: Dict, base_query_builder: BaseQueryBuilder):
+        """
+        Initialize with Databricks config and base query builder
+        
+        Args:
+            databricks_config: Databricks connection configuration
+            base_query_builder: Instance of BaseQueryBuilder with your custom query
+        """
         self.databricks_config = databricks_config
-        self.fact_table_name = fact_table_name
-        self.query_builder = DatabricksPivotQueryBuilder(fact_table_name)
-        self.connection_pool = []
+        self.base_query_builder = base_query_builder
+        
+        # Initialize query builder with base query function
+        self.query_builder = DatabricksPivotQueryBuilder(
+            base_query_builder.build_base_query
+        )
         
     def get_databricks_connection(self):
         """Get or create Databricks connection"""
@@ -239,17 +363,20 @@ class DatabricksPivotSystem:
     
     def filter_and_pivot(self, filter_column: str, filter_value: str, 
                         pivot_config: Dict, column_filters: Optional[Dict] = None) -> Dict[str, Any]:
-        """Main method to create dynamic pivot - replaces your original method"""
+        """Main method to create dynamic pivot using custom base query"""
         try:
             logger.info(f"Starting dynamic pivot for {filter_column} = {filter_value}")
             
-            # Step 1: Build initial queries
+            # Step 1: Build initial queries using your base query
             step_queries = self.query_builder.build_two_step_pivot_query(
                 filter_column, filter_value, pivot_config, column_filters
             )
             
-            # Step 2: Get unique pivot values from database
-            logger.info("Getting unique pivot values...")
+            logger.info("Generated base query:")
+            logger.info(step_queries['base_query'][:500] + "...")
+            
+            # Step 2: Get unique pivot values from your base query result
+            logger.info("Getting unique pivot values from base query...")
             values_df = self.execute_databricks_query(step_queries['step1_get_values'])
             
             if values_df.empty:
@@ -258,29 +385,29 @@ class DatabricksPivotSystem:
             pivot_values = values_df.iloc[:, 0].tolist()
             logger.info(f"Found {len(pivot_values)} unique pivot values: {pivot_values[:10]}...")
             
-            # Step 3: Choose pivot method based on number of values
+            # Step 3: Choose pivot method based on number of values and complexity
             if len(pivot_values) <= 100:
                 # Use native PIVOT for smaller datasets
                 try:
                     final_query = self.query_builder.build_final_pivot_query(
-                        pivot_values, step_queries['config'], step_queries['where_clause']
+                        pivot_values, step_queries['config'], step_queries['base_query']
                     )
-                    logger.info("Using native PIVOT method")
+                    logger.info("Using native PIVOT method with base query")
                 except Exception as e:
                     logger.warning(f"Native PIVOT failed, falling back to CASE WHEN: {e}")
                     final_query = self.query_builder.build_case_when_pivot_query(
-                        pivot_values, step_queries['config'], step_queries['where_clause']
+                        pivot_values, step_queries['config'], step_queries['base_query']
                     )
-                    logger.info("Using CASE WHEN method")
+                    logger.info("Using CASE WHEN method with base query")
             else:
                 # Use CASE WHEN for larger datasets
                 final_query = self.query_builder.build_case_when_pivot_query(
-                    pivot_values, step_queries['config'], step_queries['where_clause']
+                    pivot_values, step_queries['config'], step_queries['base_query']
                 )
-                logger.info("Using CASE WHEN method for large dataset")
+                logger.info("Using CASE WHEN method for large dataset with base query")
             
             # Step 4: Execute pivot query
-            logger.info("Executing final pivot query...")
+            logger.info("Executing final pivot query with base query...")
             pivot_df = self.execute_databricks_query(final_query)
             
             if pivot_df.empty:
@@ -303,6 +430,39 @@ class DatabricksPivotSystem:
             traceback.print_exc()
             return {'error': f'Databricks pivot generation failed: {str(e)}'}
     
+    def get_sample_pivot(self, filter_column: str, filter_value: str, 
+                        pivot_config: Dict, column_filters: Optional[Dict] = None,
+                        sample_percentage: float = 0.1) -> Dict[str, Any]:
+        """Get a quick sample pivot for preview using base query"""
+        try:
+            logger.info(f"Generating sample pivot ({sample_percentage*100}%) for {filter_column} = {filter_value}")
+            
+            config = self.query_builder._extract_and_validate_config(pivot_config)
+            base_query = self.base_query_builder.build_base_query(filter_column, filter_value, column_filters)
+            
+            # Build sample query
+            sample_query = self.query_builder.build_sample_pivot_query(config, base_query, sample_percentage)
+            
+            # Execute sample query
+            sample_df = self.execute_databricks_query(sample_query)
+            
+            if sample_df.empty:
+                return {'error': f'No sample data found for {filter_column} = {filter_value}'}
+            
+            logger.info(f"Sample pivot completed: {len(sample_df)} rows")
+            
+            return {
+                'sample_data': sample_df.to_dict('records'),
+                'row_count': len(sample_df),
+                'is_sample': True,
+                'sample_percentage': sample_percentage
+            }
+            
+        except Exception as e:
+            logger.error(f"Sample pivot error: {e}")
+            return {'error': f'Sample pivot generation failed: {str(e)}'}
+    
+    # Keep all the _create_excel_style_pivot_from_databricks and helper methods from previous version
     def _create_excel_style_pivot_from_databricks(self, pivot_df: pd.DataFrame, 
                                                 index_cols: List[str], value_cols: List[str], 
                                                 columns_cols: List[str], pivot_values: List) -> Dict[str, Any]:
@@ -340,6 +500,7 @@ class DatabricksPivotSystem:
                     'columns_cols': columns_cols
                 },
                 'databricks_optimized': True,
+                'uses_base_query': True,
                 'row_count': len(pivot_df),
                 'pivot_values_count': len(pivot_values)
             }
@@ -470,9 +631,9 @@ class DatabricksPivotSystem:
         return "('" + "', '".join(path) + "')"
 
 
-# Sample execution and testing
+# Sample execution and testing with base queries
 def main():
-    """Sample execution sequence"""
+    """Sample execution sequence with custom base queries"""
     
     # Configuration
     databricks_config = {
@@ -481,51 +642,110 @@ def main():
         'access_token': 'your-databricks-token'
     }
     
-    fact_table_name = 'your_schema.fact_sales'
+    # Example 1: Simple base query with joins
+    simple_base_query = """
+    SELECT 
+        f.business_unit,
+        f.region,
+        f.product,
+        f.month,
+        f.sales,
+        f.quantity,
+        d.manager,
+        d.budget,
+        p.category,
+        p.sub_category
+    FROM #fact_table# f
+    JOIN #dim_business# d ON f.business_unit = d.business_unit
+    JOIN #dim_product# p ON f.product = p.product_name
+    """
     
-    # Initialize the system
-    print("🚀 Initializing Databricks Pivot System...")
-    pivot_system = DatabricksPivotSystem(databricks_config, fact_table_name)
+    # Example 2: Complex base query with multiple joins and calculations
+    complex_base_query = """
+    SELECT 
+        f.business_unit,
+        f.region,
+        f.product,
+        f.month,
+        f.sales,
+        f.quantity,
+        f.sales - f.cost as profit,
+        f.sales / f.quantity as avg_price,
+        d.manager,
+        d.budget,
+        p.category,
+        p.sub_category,
+        r.region_manager,
+        r.regional_target,
+        CASE 
+            WHEN f.sales >= d.budget * 0.1 THEN 'High'
+            WHEN f.sales >= d.budget * 0.05 THEN 'Medium'
+            ELSE 'Low'
+        END as performance_tier
+    FROM #fact_table# f
+    JOIN #dim_business# d ON f.business_unit = d.business_unit
+    JOIN #dim_product# p ON f.product = p.product_name
+    JOIN #dim_region# r ON f.region = r.region_name
+    LEFT JOIN #external_targets# et ON f.business_unit = et.unit AND f.month = et.target_month
+    """
     
-    # Sample configurations
+    # Table mappings
+    table_mappings = {
+        'fact_table': 'sales_data.fact_sales',
+        'dim_business': 'sales_data.dim_business_units',
+        'dim_product': 'sales_data.dim_products',
+        'dim_region': 'sales_data.dim_regions',
+        'external_targets': 'external_sources.monthly_targets'
+    }
+    
+    print("🚀 Initializing Databricks Pivot System with Base Queries...")
+    
+    # Test cases with different base queries
     test_cases = [
         {
-            'name': 'Business Unit Sales by Month',
-            'filter_column': 'Business_Unit',
+            'name': 'Simple Join Base Query',
+            'base_query': simple_base_query,
+            'table_mappings': table_mappings,
+            'filter_column': 'business_unit',
             'filter_value': 'Electronics',
             'pivot_config': {
-                'index_cols': ['Region', 'Product'],
-                'value_cols': ['Sales'],
-                'columns_cols': ['Month']
+                'index_cols': ['region', 'category'],
+                'value_cols': ['sales'],
+                'columns_cols': ['month']
             },
             'column_filters': {
-                'Region': ['North', 'South', 'East'],
-                'Product': ['Laptop', 'Mobile', 'Tablet']
+                'region': ['North', 'South'],
+                'category': ['Technology', 'Electronics']
             }
         },
         {
-            'name': 'Multi-level Hierarchy Analysis',
-            'filter_column': 'Business_Unit',
+            'name': 'Complex Multi-Join Base Query',
+            'base_query': complex_base_query,
+            'table_mappings': table_mappings,
+            'filter_column': 'business_unit',
             'filter_value': 'Electronics',
             'pivot_config': {
-                'index_cols': ['Region', 'Product', 'Sub_Category'],
-                'value_cols': ['Sales', 'Quantity'],
-                'columns_cols': ['Quarter']
+                'index_cols': ['region', 'performance_tier', 'product'],
+                'value_cols': ['sales', 'profit'],
+                'columns_cols': ['month']
+            },
+            'column_filters': {
+                'performance_tier': ['High', 'Medium'],
+                'category': ['Technology']
+            }
+        },
+        {
+            'name': 'Custom Calculated Fields',
+            'base_query': complex_base_query,
+            'table_mappings': table_mappings,
+            'filter_column': 'region',
+            'filter_value': 'North',
+            'pivot_config': {
+                'index_cols': ['business_unit', 'manager'],
+                'value_cols': ['avg_price', 'profit'],
+                'columns_cols': ['performance_tier']
             },
             'column_filters': None
-        },
-        {
-            'name': 'Simple Category Analysis',
-            'filter_column': 'Category',
-            'filter_value': 'Technology',
-            'pivot_config': {
-                'index_cols': ['Sub_Category'],
-                'value_cols': ['Profit'],
-                'columns_cols': ['Year']
-            },
-            'column_filters': {
-                'Year': ['2023', '2024']
-            }
         }
     ]
     
@@ -535,6 +755,15 @@ def main():
         print("="*60)
         
         try:
+            # Initialize base query builder
+            base_query_builder = BaseQueryBuilder(
+                test_case['base_query'],
+                test_case['table_mappings']
+            )
+            
+            # Initialize pivot system
+            pivot_system = DatabricksPivotSystem(databricks_config, base_query_builder)
+            
             start_time = time.time()
             
             # Execute pivot
@@ -555,88 +784,119 @@ def main():
                 print(f"   🏗️  Hierarchy levels: {len(result.get('hierarchy_levels', []))}")
                 print(f"   📊 Pivot values: {result.get('pivot_values_count', 'Unknown')}")
                 print(f"   🔗 Data points: {len(result.get('pivot_data', {}))}")
+                print(f"   🎯 Uses base query: {result.get('uses_base_query', False)}")
                 
                 # Sample of hierarchy structure
                 if result.get('row_hierarchy'):
                     hierarchy_sample = list(result['row_hierarchy'].keys())[:3]
                     print(f"   🌳 Sample hierarchy: {hierarchy_sample}")
-                
-                # Sample of column headers
-                if result.get('column_headers', {}).get('data_keys'):
-                    headers_sample = result['column_headers']['data_keys'][:5]
-                    print(f"   📋 Sample columns: {headers_sample}")
         
         except Exception as e:
             print(f"❌ Test case failed: {e}")
     
-    print(f"\n🎉 Dynamic Databricks Pivot System testing completed!")
-    print("Ready for integration with your Flask application!")
+    print(f"\n🎉 Base Query Databricks Pivot System testing completed!")
 
 
-def demo_query_builder():
-    """Demonstrate query building without execution"""
-    print("\n🔧 Query Builder Demo")
+def demo_base_query_builder():
+    """Demonstrate base query building without execution"""
+    print("\n🔧 Base Query Builder Demo")
     print("="*40)
     
-    query_builder = DatabricksPivotQueryBuilder('demo_schema.fact_sales')
+    # Your actual base query template
+    your_base_query = """
+    SELECT 
+        f.business_unit,
+        f.region,
+        f.product,
+        f.month,
+        f.sales,
+        f.quantity,
+        f.profit_margin,
+        d.manager,
+        d.budget_target,
+        p.category,
+        p.sub_category,
+        p.product_cost,
+        r.region_manager,
+        CASE 
+            WHEN f.sales >= d.budget_target * 0.1 THEN 'Excellent'
+            WHEN f.sales >= d.budget_target * 0.05 THEN 'Good'
+            WHEN f.sales >= d.budget_target * 0.02 THEN 'Average'
+            ELSE 'Poor'
+        END as performance_rating,
+        f.sales * p.profit_margin as calculated_profit
+    FROM #fact_sales# f
+    INNER JOIN #dim_business_unit# d ON f.business_unit = d.unit_name
+    INNER JOIN #dim_product# p ON f.product = p.product_name
+    LEFT JOIN #dim_region# r ON f.region = r.region_code
+    LEFT JOIN #external_budget# eb ON f.business_unit = eb.unit AND f.month = eb.budget_month
+    """
     
-    sample_config = {
-        'index_cols': ['Business_Unit', 'Region'],
-        'value_cols': ['Sales', 'Profit'],
-        'columns_cols': ['Month']
+    table_mappings = {
+        'fact_sales': 'analytics_db.fact_sales_data',
+        'dim_business_unit': 'analytics_db.dim_business_units',
+        'dim_product': 'analytics_db.dim_product_catalog',
+        'dim_region': 'analytics_db.dim_regions',
+        'external_budget': 'external_db.budget_targets'
     }
     
-    sample_filters = {
-        'Product': ['Laptop', 'Mobile'],
-        'Year': ['2023', '2024']
-    }
+    base_query_builder = BaseQueryBuilder(your_base_query, table_mappings)
     
     try:
-        # Step 1: Build initial query structure
-        step_queries = query_builder.build_two_step_pivot_query(
-            'Category', 'Electronics', sample_config, sample_filters
+        # Test base query generation
+        sample_filters = {
+            'region': ['North', 'South'],
+            'category': ['Electronics', 'Technology'],
+            'performance_rating': ['Excellent', 'Good']
+        }
+        
+        final_query = base_query_builder.build_base_query(
+            'business_unit', 'Electronics', sample_filters
         )
         
-        print("📝 Step 1 - Get Unique Values Query:")
-        print(step_queries['step1_get_values'])
-        print()
-        
-        # Step 2: Simulate pivot values and build final query
-        sample_pivot_values = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-        
-        final_query = query_builder.build_final_pivot_query(
-            sample_pivot_values, step_queries['config'], step_queries['where_clause']
-        )
-        
-        print("📝 Step 2 - Final PIVOT Query:")
+        print("📝 Generated Base Query:")
         print(final_query)
         print()
         
-        # Alternative: CASE WHEN approach
-        case_query = query_builder.build_case_when_pivot_query(
-            sample_pivot_values, step_queries['config'], step_queries['where_clause']
+        # Show how it integrates with pivot builder
+        query_builder = DatabricksPivotQueryBuilder(base_query_builder.build_base_query)
+        
+        sample_config = {
+            'index_cols': ['region', 'performance_rating'],
+            'value_cols': ['sales', 'calculated_profit'],
+            'columns_cols': ['month']
+        }
+        
+        step_queries = query_builder.build_two_step_pivot_query(
+            'business_unit', 'Electronics', sample_config, sample_filters
         )
         
-        print("📝 Alternative - CASE WHEN Query:")
-        print(case_query)
+        print("📝 Step 1 - Get Pivot Values (using base query):")
+        print(step_queries['step1_get_values'])
+        print()
+        
+        print("📝 Base Query Used:")
+        print(step_queries['base_query'][:500] + "...")
         
     except Exception as e:
-        print(f"❌ Query building failed: {e}")
+        print(f"❌ Demo failed: {e}")
 
 
 if __name__ == "__main__":
-    print("🚀 Databricks Dynamic Pivot System")
-    print("="*50)
+    print("🚀 Databricks Dynamic Pivot System with Base Queries")
+    print("="*60)
     
-    # Run query builder demo (safe to run without Databricks connection)
-    demo_query_builder()
+    # Run base query builder demo (safe to run without Databricks connection)
+    demo_base_query_builder()
     
     # Uncomment to run full tests (requires valid Databricks connection)
     # main()
     
-    print(f"\n💡 Integration Notes:")
-    print("1. Replace 'your-databricks-*' placeholders with actual values")
-    print("2. Update fact_table_name with your actual table")
-    print("3. Replace your existing filter_and_pivot method with the new one")
-    print("4. Frontend requires no changes - same API response format!")
-    print("5. Performance improvement: 5-10 minutes → 30 seconds - 2 minutes")
+    print(f"\n💡 Integration Notes for Your Base Query:")
+    print("1. Replace base query template with your actual multi-join query")
+    print("2. Use #table_name# placeholders for dynamic table mapping")
+    print("3. Update table_mappings with your actual table names")
+    print("4. Your base query can include any complexity: joins, calculations, CTEs")
+    print("5. Column filters are automatically applied to your base query")
+    print("6. Frontend requires no changes - same API response format!")
+    print("7. Performance: Base query + Pivot = 30 seconds - 2 minutes vs 5-10 minutes")
