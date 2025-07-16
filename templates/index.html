@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Scrollable Pivot System - Excel Style</title>
+    <title>Enhanced N-Column Pivot System - Excel Style</title>
     <!-- Using system fonts instead of Google Fonts to avoid extension blocking -->
     <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -104,14 +104,6 @@ body {
         border-top: none;
         width: 100%;
         text-align: left;
-    }
-    .nav-link:hover {
-        border-bottom-color: #34495e;
-        border-left: 3px solid #3498db;
-    }
-    .nav-link.active {
-        border-bottom-color: #34495e;
-        border-left: 3px solid #3498db;
     }
 }
 
@@ -269,7 +261,7 @@ body {
 .expand-indicator { display: inline-block; margin-right: 6px; transition: transform 0.2s ease; font-weight: 600; font-size: 10px; }
 .dimension-row.expanded .expand-indicator { transform: rotate(90deg); }
 
-/* Excel Pivot Table Styles */
+/* Dynamic N-Column Excel Pivot Table Styles */
 .excel-pivot-table { 
     width: 100%; 
     border-collapse: collapse; 
@@ -281,8 +273,32 @@ body {
     position: relative;
     min-width: 1400px;
 }
-.excel-pivot-table .header-row-1 { background: #2c3e50; border-bottom: 2px solid #34495e; }
-.excel-pivot-table .header-row-2 { background: #34495e; border-bottom: 1px solid #5d6d7e; }
+
+/* Dynamic header row styles - supports unlimited levels */
+.excel-pivot-table .header-row { 
+    border-bottom: 1px solid rgba(255,255,255,0.3); 
+}
+.excel-pivot-table .header-row.level-0 { 
+    background: #2c3e50; 
+    border-bottom: 2px solid #34495e; 
+}
+.excel-pivot-table .header-row.level-1 { 
+    background: #34495e; 
+    border-bottom: 1px solid #5d6d7e; 
+}
+.excel-pivot-table .header-row.level-2 { 
+    background: #5d6d7e; 
+    border-bottom: 1px solid #6c7b7f; 
+}
+.excel-pivot-table .header-row.level-3 { 
+    background: #6c7b7f; 
+    border-bottom: 1px solid #7b8a8f; 
+}
+.excel-pivot-table .header-row.level-4 { 
+    background: #7b8a8f; 
+    border-bottom: 1px solid #8a999f; 
+}
+
 .excel-pivot-table .header-cell { 
     color: white; 
     padding: 8px 12px; 
@@ -293,8 +309,29 @@ body {
     white-space: nowrap;
     min-width: 80px;
 }
-.excel-pivot-table .header-cell.main-group { font-size: 12px; border-right: 2px solid rgba(255,255,255,0.4); }
-.excel-pivot-table .header-cell.sub-group { font-size: 10px; font-weight: 500; }
+.excel-pivot-table .header-cell.main-group { 
+    font-size: 12px; 
+    border-right: 2px solid rgba(255,255,255,0.4); 
+}
+.excel-pivot-table .header-cell.sub-group { 
+    font-size: 10px; 
+    font-weight: 500; 
+}
+.excel-pivot-table .header-cell.subtotal { 
+    background: #95a5a6 !important; 
+    font-weight: 700; 
+    font-style: italic;
+    border-left: 2px solid #7f8c8d;
+}
+.excel-pivot-table .header-cell.sub-group { 
+    font-size: 10px; 
+    font-weight: 500; 
+}
+.excel-pivot-table .header-cell.level-indicator {
+    font-size: 9px;
+    opacity: 0.8;
+    background: rgba(0,0,0,0.1);
+}
 .excel-pivot-table .header-cell.row-header { 
     background: #95a5a6; 
     text-align: left; 
@@ -307,7 +344,11 @@ body {
     max-width: 250px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
-.excel-pivot-table .header-cell.grand-total { background: #e74c3c; font-weight: 700; }
+.excel-pivot-table .header-cell.grand-total { 
+    background: #e74c3c !important; 
+    font-weight: 700; 
+}
+
 .excel-pivot-table .data-row { border-bottom: 1px solid #ecf0f1; }
 .excel-pivot-table .data-row:hover { background: #f8f9fa; }
 .excel-pivot-table .data-row.collapsed { display: none; }
@@ -388,6 +429,40 @@ body {
 }
 .excel-pivot-table .grand-total-row .data-cell { background: #34495e; color: white; font-weight: 700; border: 1px solid #2c3e50; }
 
+/* Multi-level column header indicator */
+.column-level-indicator {
+    display: inline-block;
+    background: rgba(0,0,0,0.2);
+    color: white;
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    margin-left: 4px;
+    font-weight: 400;
+}
+
+/* Column count badge */
+.column-count-badge {
+    display: inline-block;
+    background: #e74c3c;
+    color: white;
+    font-size: 8px;
+    padding: 2px 5px;
+    border-radius: 10px;
+    margin-left: 8px;
+    font-weight: 600;
+}
+
+/* Dynamic header level styling */
+.header-level-0 { background: #2c3e50 !important; }
+.header-level-1 { background: #34495e !important; }
+.header-level-2 { background: #5d6d7e !important; }
+.header-level-3 { background: #6c7b7f !important; }
+.header-level-4 { background: #7b8a8f !important; }
+.header-level-5 { background: #8a999f !important; }
+.header-level-6 { background: #99a8af !important; }
+.header-level-7 { background: #a8b7bf !important; }
+
 /* Pivot Container */
 .pivot-container { 
     background: #f8f9fa; 
@@ -444,7 +519,6 @@ body {
 /* Sticky Headers */
 .excel-pivot-table thead th {
     position: sticky;
-    top: 0;
     z-index: 20;
     box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
 }
@@ -565,7 +639,7 @@ body {
         <!-- Navigation Bar -->
         <nav class="navbar">
             <div class="nav-container">
-                <a href="#" class="nav-brand">Pivot System</a>
+                <a href="#" class="nav-brand">N-Column Pivot System</a>
                 <button class="nav-toggle" onclick="toggleMobileNav()">☰</button>
                 <div class="nav-links" id="navLinks">
                     <a href="#" class="nav-link active" onclick="navigateToPage('page1')">Page 1</a>
@@ -576,14 +650,14 @@ body {
         </nav>
 
         <div class="header">
-            <h1>Enhanced Scrollable Pivot System - Excel Style</h1>
-            <p>Professional data analysis with scrollable tables, sticky headers, and Excel-style column filters</p>
+            <h1>Enhanced N-Column Pivot System - Excel Style</h1>
+            <p>Professional data analysis with unlimited column dimensions, scrollable tables, sticky headers, and Excel-style filters</p>
         </div>
 
         <div class="controls">
             <div class="pivot-builder">
                 <div class="builder-header">
-                    <span>Pivot Table Builder</span>
+                    <span>N-Column Pivot Table Builder</span>
                     <button class="toggle-builder" onclick="pivotSystem.toggleBuilder()">Configure</button>
                 </div>
                 <div class="builder-content" id="builderContent">
@@ -603,11 +677,11 @@ body {
                         <div class="drop-zones">
                             <div class="drop-zone" id="columnsZone" ondrop="pivotSystem.handleDrop(event, 'columns')" ondragover="pivotSystem.handleDragOver(event)" ondragleave="pivotSystem.handleDragLeave(event)">
                                 <div class="drop-zone-header">
-                                    <span>Columns</span>
+                                    <span>Columns <span class="column-count-badge" id="columnsBadge" style="display: none;">∞</span></span>
                                     <div class="field-count" id="columnsCount">0</div>
                                 </div>
                                 <div class="drop-zone-content" id="columnsContent">
-                                    <div class="drop-zone-placeholder">Drag fields here for hierarchical columns</div>
+                                    <div class="drop-zone-placeholder">Drag any number of fields here for hierarchical columns</div>
                                 </div>
                             </div>
 
@@ -706,34 +780,16 @@ body {
         }
 
         function navigateToPage(page) {
-            // Remove active class from all nav links
             const navLinks = document.querySelectorAll('.nav-link');
             navLinks.forEach(link => link.classList.remove('active'));
             
-            // Add active class to clicked link
             event.target.classList.add('active');
-            
-            // Close mobile nav if open
             document.getElementById('navLinks').classList.remove('show');
             
-            // You can add your navigation logic here
             console.log('Navigating to:', page);
-            
-            // Example: You can modify this to actually navigate or load content
-            switch(page) {
-                case 'page1':
-                    // Handle Page 1 navigation
-                    break;
-                case 'page2':
-                    // Handle Page 2 navigation
-                    break;
-                case 'headers':
-                    // Handle Headers navigation
-                    break;
-            }
         }
 
-        function ProfessionalPivotSystem() {
+        function EnhancedNColumnPivotSystem() {
             this.dimensionData = [];
             this.filteredData = [];
             this.expandedRows = new Set();
@@ -774,7 +830,7 @@ body {
             this.loadDimensionData();
         }
 
-        ProfessionalPivotSystem.prototype.initializeEventListeners = function() {
+        EnhancedNColumnPivotSystem.prototype.initializeEventListeners = function() {
             var self = this;
             document.getElementById('dimensionSearch').addEventListener('input', function(e) {
                 self.dimensionSearchTerm = e.target.value.toLowerCase();
@@ -782,7 +838,7 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.loadDimensionData = function() {
+        EnhancedNColumnPivotSystem.prototype.loadDimensionData = function() {
             var self = this;
             fetch('/api/dimensions')
                 .then(function(response) {
@@ -811,7 +867,7 @@ body {
                 });
         };
 
-        ProfessionalPivotSystem.prototype.loadPivotFields = function() {
+        EnhancedNColumnPivotSystem.prototype.loadPivotFields = function() {
             var self = this;
             if (!this.dimensionData.columns || this.dimensionData.columns.length === 0) return;
             
@@ -870,7 +926,7 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.renderFieldList = function() {
+        EnhancedNColumnPivotSystem.prototype.renderFieldList = function() {
             var self = this;
             var fieldList = document.getElementById('fieldList');
             if (!fieldList) return;
@@ -900,7 +956,7 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.setupFieldSearch = function() {
+        EnhancedNColumnPivotSystem.prototype.setupFieldSearch = function() {
             var self = this;
             var fieldSearchInput = document.getElementById('fieldSearch');
             if (fieldSearchInput) {
@@ -910,7 +966,7 @@ body {
             }
         };
 
-        ProfessionalPivotSystem.prototype.filterFieldList = function(searchTerm) {
+        EnhancedNColumnPivotSystem.prototype.filterFieldList = function(searchTerm) {
             var fieldItems = document.querySelectorAll('#fieldList .field-item');
             fieldItems.forEach(function(item) {
                 var fieldName = item.dataset.fieldName.toLowerCase();
@@ -922,7 +978,7 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.setDefaultConfiguration = function() {
+        EnhancedNColumnPivotSystem.prototype.setDefaultConfiguration = function() {
             var categoricalFields = this.availableFields.filter(function(f) { return !f.isNumeric; });
             var numericFields = this.availableFields.filter(function(f) { return f.isNumeric; });
             
@@ -941,8 +997,19 @@ body {
             this.loadColumnFilterValues();
         };
 
-        // Filter Functions
-        ProfessionalPivotSystem.prototype.toggleFiltersPane = function() {
+        EnhancedNColumnPivotSystem.prototype.toggleBuilder = function() {
+            this.builderVisible = !this.builderVisible;
+            var content = document.getElementById('builderContent');
+            if (content) {
+                if (this.builderVisible) {
+                    content.classList.add('show');
+                } else {
+                    content.classList.remove('show');
+                }
+            }
+        };
+
+        EnhancedNColumnPivotSystem.prototype.toggleFiltersPane = function() {
             this.filtersVisible = !this.filtersVisible;
             var content = document.getElementById('filtersContent');
             if (content) {
@@ -954,7 +1021,186 @@ body {
             }
         };
 
-        ProfessionalPivotSystem.prototype.loadColumnFilterValues = function() {
+        EnhancedNColumnPivotSystem.prototype.handleDragStart = function(e) {
+            e.dataTransfer.setData('text/plain', e.target.dataset.fieldName);
+            e.dataTransfer.setData('field-type', e.target.dataset.fieldType);
+            e.dataTransfer.setData('is-numeric', e.target.dataset.isNumeric);
+            e.target.classList.add('dragging');
+        };
+
+        EnhancedNColumnPivotSystem.prototype.handleDragEnd = function(e) {
+            e.target.classList.remove('dragging');
+        };
+
+        EnhancedNColumnPivotSystem.prototype.handleDragOver = function(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        };
+
+        EnhancedNColumnPivotSystem.prototype.handleDrop = function(e, zone) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            var fieldName = e.dataTransfer.getData('text/plain');
+            var fieldType = e.dataTransfer.getData('field-type');
+            var isNumeric = e.dataTransfer.getData('is-numeric') === 'true';
+            
+            if (zone === 'values' && !isNumeric) {
+                alert('Only numeric fields can be used in Values area');
+                return;
+            }
+            
+            this.removeFieldFromAllZones(fieldName);
+            
+            if (this.pivotConfig[zone].indexOf(fieldName) === -1) {
+                this.pivotConfig[zone].push(fieldName);
+            }
+            
+            this.renderDropZones();
+            this.loadColumnFilterValues();
+        };
+
+        EnhancedNColumnPivotSystem.prototype.removeFieldFromAllZones = function(fieldName) {
+            var self = this;
+            Object.keys(this.pivotConfig).forEach(function(zone) {
+                var index = self.pivotConfig[zone].indexOf(fieldName);
+                if (index > -1) {
+                    self.pivotConfig[zone].splice(index, 1);
+                }
+            });
+        };
+
+        EnhancedNColumnPivotSystem.prototype.renderDropZones = function() {
+            var self = this;
+            Object.keys(this.pivotConfig).forEach(function(zone) {
+                var content = document.getElementById(zone + 'Content');
+                var countElement = document.getElementById(zone + 'Count');
+                var badgeElement = document.getElementById(zone + 'Badge');
+                if (!content) return;
+                
+                var fields = self.pivotConfig[zone];
+                
+                if (countElement) {
+                    countElement.textContent = fields.length;
+                }
+                
+                // Show special badge for columns zone when it has many fields
+                if (zone === 'columns' && badgeElement) {
+                    if (fields.length > 2) {
+                        badgeElement.style.display = 'inline';
+                        badgeElement.textContent = fields.length + '+';
+                    } else {
+                        badgeElement.style.display = 'none';
+                    }
+                }
+                
+                if (fields.length === 0) {
+                    var placeholders = {
+                        columns: 'Drag any number of fields here for hierarchical columns',
+                        rows: 'Drag fields here for hierarchical rows',
+                        values: 'Drag numeric fields here for aggregation'
+                    };
+                    content.innerHTML = '<div class="drop-zone-placeholder">' + placeholders[zone] + '</div>';
+                } else {
+                    content.innerHTML = fields.map(function(fieldName, index) {
+                        var field = self.availableFields.find(function(f) { return f.name === fieldName; });
+                        
+                        return '<div class="dropped-field" draggable="true" data-field-name="' + fieldName + '" data-field-type="' + (field ? field.type : 'text') + '" data-is-numeric="' + (field ? field.isNumeric : false) + '">' +
+                            '<div class="field-info">' +
+                                '<div class="field-order">' + (index + 1) + '</div>' +
+                                '<div class="field-type ' + (field ? field.type : 'text') + '">' + (field && field.type === 'number' ? '#' : 'T') + '</div>' +
+                                '<span>' + fieldName + '</span>' +
+                            '</div>' +
+                            '<button class="remove-btn" onclick="pivotSystem.removeField(\'' + zone + '\', \'' + fieldName + '\')">×</button>' +
+                        '</div>';
+                    }).join('');
+                    
+                    content.querySelectorAll('.dropped-field').forEach(function(element) {
+                        element.addEventListener('dragstart', function(e) {
+                            self.handleDragStart(e);
+                        });
+                        element.addEventListener('dragend', function(e) {
+                            self.handleDragEnd(e);
+                        });
+                    });
+                }
+            });
+        };
+
+        EnhancedNColumnPivotSystem.prototype.removeField = function(zone, fieldName) {
+            var index = this.pivotConfig[zone].indexOf(fieldName);
+            if (index > -1) {
+                this.pivotConfig[zone].splice(index, 1);
+                this.renderDropZones();
+                this.loadColumnFilterValues();
+            }
+        };
+
+        EnhancedNColumnPivotSystem.prototype.resetBuilder = function() {
+            this.pivotConfig = {
+                columns: [],
+                rows: [],
+                values: []
+            };
+            this.columnFilters = {};
+            this.renderDropZones();
+            this.renderFilterGrid();
+        };
+
+        EnhancedNColumnPivotSystem.prototype.applyPivotConfig = function() {
+            var self = this;
+            if (this.pivotConfig.rows.length === 0) {
+                alert('Please add at least one field to Rows');
+                return;
+            }
+            
+            if (this.pivotConfig.values.length === 0) {
+                alert('Please add at least one field to Values');
+                return;
+            }
+            
+            if (this.pivotConfig.columns.length === 0) {
+                alert('Please add at least one field to Columns');
+                return;
+            }
+            
+            // Clear all existing pivot data to prevent reloading
+            this.pivotData = {};
+            
+            // Only regenerate pivots for currently expanded rows
+            this.expandedRows.forEach(function(rowIndex) {
+                self.generatePivotForRow(rowIndex);
+            });
+            
+            this.builderVisible = false;
+            var content = document.getElementById('builderContent');
+            if (content) {
+                content.classList.remove('show');
+            }
+            
+            var configSummary = 'Rows: ' + this.pivotConfig.rows.join(' → ') + 
+                              '\nColumns (' + this.pivotConfig.columns.length + ' levels): ' + this.pivotConfig.columns.join(' → ') + 
+                              '\nValues: ' + this.pivotConfig.values.join(', ');
+                              
+            var filterSummary = '';
+            var activeFilters = Object.keys(this.columnFilters).filter(function(col) {
+                return self.columnFilters[col] && self.columnFilters[col].length > 0;
+            });
+            if (activeFilters.length > 0) {
+                filterSummary = '\nActive Filters: ' + activeFilters.join(', ');
+            }
+            
+            alert('N-Column pivot configuration applied!\n\n' + configSummary + filterSummary);
+        };
+
+        EnhancedNColumnPivotSystem.prototype.handleDragLeave = function(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+        };
+
+        // Filter Functions
+        EnhancedNColumnPivotSystem.prototype.loadColumnFilterValues = function() {
             var self = this;
             if (!this.dimensionData.columns || this.dimensionData.columns.length === 0) return;
             
@@ -976,16 +1222,13 @@ body {
                 })
                 .then(function(data) {
                     if (!data.error) {
-                        // Sort the values before storing
                         var values = data.filter_values || [];
                         values.sort(function(a, b) {
-                            // Try numeric sort first
                             var numA = parseFloat(a);
                             var numB = parseFloat(b);
                             if (!isNaN(numA) && !isNaN(numB)) {
                                 return numA - numB;
                             }
-                            // Fall back to string sort
                             return String(a).localeCompare(String(b));
                         });
                         
@@ -999,7 +1242,7 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.renderFilterGrid = function() {
+        EnhancedNColumnPivotSystem.prototype.renderFilterGrid = function() {
             var self = this;
             var filterGrid = document.getElementById('filterGrid');
             if (!filterGrid) return;
@@ -1034,29 +1277,25 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.renderFilterOptions = function(column) {
+        EnhancedNColumnPivotSystem.prototype.renderFilterOptions = function(column) {
             var self = this;
             var options = this.availableColumnValues[column] || [];
             var excludedValues = this.columnFilters[column] || [];
             
             var html = '';
             
-            // Add search input
             html += '<input type="text" class="filter-search" placeholder="Search values..." ' +
                     'oninput="pivotSystem.searchFilterOptions(\'' + column + '\', this.value)" ' +
                     'onclick="event.stopPropagation()">';
             
-            // Select All option
             var allSelected = excludedValues.length === 0;
             html += '<div class="filter-option select-all-option" onclick="pivotSystem.toggleFilterAll(\'' + column + '\')">' +
                     '<input type="checkbox" ' + (allSelected ? 'checked' : '') + ' readonly> ' +
                     '<span><strong>Select All</strong></span></div>';
             
-            // Individual options (already sorted from loadColumnFilterValues)
             options.forEach(function(value, index) {
                 var isExcluded = excludedValues.includes(value);
                 var isSelected = !isExcluded;
-                var valueId = column + '_option_' + index;
                 
                 html += '<div class="filter-option value-option" data-value="' + 
                         String(value).toLowerCase() + '" onclick="pivotSystem.toggleFilterValue(\'' + column + '\', \'' + 
@@ -1068,29 +1307,25 @@ body {
             return html;
         };
 
-        ProfessionalPivotSystem.prototype.toggleFilterAll = function(column) {
+        EnhancedNColumnPivotSystem.prototype.toggleFilterAll = function(column) {
             if (this.columnFilters[column] && this.columnFilters[column].length > 0) {
-                // Some items are excluded, select all (clear exclusions)
                 this.columnFilters[column] = [];
             } else {
-                // All are selected, exclude all
                 this.columnFilters[column] = [...this.availableColumnValues[column]];
             }
             this.renderFilterGrid();
             this.applyColumnFilters();
         };
 
-        ProfessionalPivotSystem.prototype.toggleFilterValue = function(column, value) {
+        EnhancedNColumnPivotSystem.prototype.toggleFilterValue = function(column, value) {
             if (!this.columnFilters[column]) {
                 this.columnFilters[column] = [];
             }
             
             var index = this.columnFilters[column].indexOf(value);
             if (index > -1) {
-                // Remove from excluded list (include in results)
                 this.columnFilters[column].splice(index, 1);
             } else {
-                // Add to excluded list (exclude from results)
                 this.columnFilters[column].push(value);
             }
             
@@ -1098,7 +1333,7 @@ body {
             this.applyColumnFilters();
         };
 
-        ProfessionalPivotSystem.prototype.searchFilterOptions = function(column, searchTerm) {
+        EnhancedNColumnPivotSystem.prototype.searchFilterOptions = function(column, searchTerm) {
             var dropdown = document.getElementById('filter-' + column.replace(/\s+/g, '_'));
             if (!dropdown) return;
             
@@ -1115,42 +1350,9 @@ body {
                     option.classList.add('hidden');
                 }
             });
-            
-            // Update the summary to show filtered count
-            this.updateFilterSummary(column, visibleCount);
         };
 
-        ProfessionalPivotSystem.prototype.updateFilterSummary = function(column, visibleCount) {
-            var filterItem = document.querySelector('[data-column="' + column + '"]');
-            if (!filterItem) return;
-            
-            var summaryElement = filterItem.querySelector('.filter-summary');
-            if (!summaryElement) return;
-            
-            var selectedValues = this.columnFilters[column] || [];
-            var totalValues = this.availableColumnValues[column] ? this.availableColumnValues[column].length : 0;
-            var selectedCount = selectedValues.length;
-            
-            var summaryText;
-            if (visibleCount !== undefined && visibleCount < totalValues) {
-                // Show filtered view
-                summaryText = 'Showing ' + visibleCount + ' of ' + totalValues + ' values';
-                if (selectedCount === 0) {
-                    summaryText += ' (All selected)';
-                } else {
-                    var includedCount = totalValues - selectedCount;
-                    summaryText += ' (' + includedCount + ' selected)';
-                }
-            } else {
-                // Show normal view
-                summaryText = selectedCount === 0 ? 'All selected' : 
-                            selectedCount + ' of ' + totalValues + ' selected';
-            }
-            
-            summaryElement.textContent = summaryText;
-        };
-
-        ProfessionalPivotSystem.prototype.applyColumnFilters = function() {
+        EnhancedNColumnPivotSystem.prototype.applyColumnFilters = function() {
             var self = this;
             // Clear existing pivot data to force regeneration with filters
             this.pivotData = {};
@@ -1161,186 +1363,16 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.toggleBuilder = function() {
-            this.builderVisible = !this.builderVisible;
-            var content = document.getElementById('builderContent');
-            if (content) {
-                if (this.builderVisible) {
-                    content.classList.add('show');
-                } else {
-                    content.classList.remove('show');
-                }
+        EnhancedNColumnPivotSystem.prototype.clearColumnFilter = function(column) {
+            if (this.columnFilters[column]) {
+                delete this.columnFilters[column];
+                this.renderFilterGrid();
+                this.applyColumnFilters();
             }
         };
 
-        ProfessionalPivotSystem.prototype.handleDragStart = function(e) {
-            e.dataTransfer.setData('text/plain', e.target.dataset.fieldName);
-            e.dataTransfer.setData('field-type', e.target.dataset.fieldType);
-            e.dataTransfer.setData('is-numeric', e.target.dataset.isNumeric);
-            e.target.classList.add('dragging');
-        };
-
-        ProfessionalPivotSystem.prototype.handleDragEnd = function(e) {
-            e.target.classList.remove('dragging');
-        };
-
-        ProfessionalPivotSystem.prototype.handleDragOver = function(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('drag-over');
-        };
-
-        ProfessionalPivotSystem.prototype.handleDrop = function(e, zone) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('drag-over');
-            
-            var fieldName = e.dataTransfer.getData('text/plain');
-            var fieldType = e.dataTransfer.getData('field-type');
-            var isNumeric = e.dataTransfer.getData('is-numeric') === 'true';
-            
-            if (zone === 'values' && !isNumeric) {
-                alert('Only numeric fields can be used in Values area');
-                return;
-            }
-            
-            this.removeFieldFromAllZones(fieldName);
-            
-            if (this.pivotConfig[zone].indexOf(fieldName) === -1) {
-                this.pivotConfig[zone].push(fieldName);
-            }
-            
-            this.renderDropZones();
-            this.loadColumnFilterValues();
-        };
-
-        ProfessionalPivotSystem.prototype.removeFieldFromAllZones = function(fieldName) {
-            var self = this;
-            Object.keys(this.pivotConfig).forEach(function(zone) {
-                var index = self.pivotConfig[zone].indexOf(fieldName);
-                if (index > -1) {
-                    self.pivotConfig[zone].splice(index, 1);
-                }
-            });
-        };
-
-        ProfessionalPivotSystem.prototype.renderDropZones = function() {
-            var self = this;
-            Object.keys(this.pivotConfig).forEach(function(zone) {
-                var content = document.getElementById(zone + 'Content');
-                var countElement = document.getElementById(zone + 'Count');
-                if (!content) return;
-                
-                var fields = self.pivotConfig[zone];
-                
-                if (countElement) {
-                    countElement.textContent = fields.length;
-                }
-                
-                if (fields.length === 0) {
-                    var placeholders = {
-                        columns: 'Drag fields here for hierarchical columns',
-                        rows: 'Drag fields here for hierarchical rows',
-                        values: 'Drag numeric fields here for aggregation'
-                    };
-                    content.innerHTML = '<div class="drop-zone-placeholder">' + placeholders[zone] + '</div>';
-                } else {
-                    content.innerHTML = fields.map(function(fieldName, index) {
-                        var field = self.availableFields.find(function(f) { return f.name === fieldName; });
-                        
-                        return '<div class="dropped-field" draggable="true" data-field-name="' + fieldName + '" data-field-type="' + (field ? field.type : 'text') + '" data-is-numeric="' + (field ? field.isNumeric : false) + '">' +
-                            '<div class="field-info">' +
-                                '<div class="field-order">' + (index + 1) + '</div>' +
-                                '<div class="field-type ' + (field ? field.type : 'text') + '">' + (field && field.type === 'number' ? '#' : 'T') + '</div>' +
-                                '<span>' + fieldName + '</span>' +
-                            '</div>' +
-                            '<button class="remove-btn" onclick="pivotSystem.removeField(\'' + zone + '\', \'' + fieldName + '\')">×</button>' +
-                        '</div>';
-                    }).join('');
-                    
-                    content.querySelectorAll('.dropped-field').forEach(function(element) {
-                        element.addEventListener('dragstart', function(e) {
-                            self.handleDragStart(e);
-                        });
-                        element.addEventListener('dragend', function(e) {
-                            self.handleDragEnd(e);
-                        });
-                    });
-                }
-            });
-        };
-
-        ProfessionalPivotSystem.prototype.removeField = function(zone, fieldName) {
-            var index = this.pivotConfig[zone].indexOf(fieldName);
-            if (index > -1) {
-                this.pivotConfig[zone].splice(index, 1);
-                this.renderDropZones();
-                this.loadColumnFilterValues();
-            }
-        };
-
-        ProfessionalPivotSystem.prototype.resetBuilder = function() {
-            this.pivotConfig = {
-                columns: [],
-                rows: [],
-                values: []
-            };
-            this.columnFilters = {};
-            this.renderDropZones();
-            this.renderFilterGrid();
-        };
-
-        ProfessionalPivotSystem.prototype.applyPivotConfig = function() {
-            var self = this;
-            if (this.pivotConfig.rows.length === 0) {
-                alert('Please add at least one field to Rows');
-                return;
-            }
-            
-            if (this.pivotConfig.values.length === 0) {
-                alert('Please add at least one field to Values');
-                return;
-            }
-            
-            if (this.pivotConfig.columns.length === 0) {
-                alert('Please add at least one field to Columns');
-                return;
-            }
-            
-            // Clear all existing pivot data to prevent reloading
-            this.pivotData = {};
-            
-            // Only regenerate pivots for currently expanded rows
-            this.expandedRows.forEach(function(rowIndex) {
-                self.generatePivotForRow(rowIndex);
-            });
-            
-            this.builderVisible = false;
-            var content = document.getElementById('builderContent');
-            if (content) {
-                content.classList.remove('show');
-            }
-            
-            var configSummary = 'Rows: ' + this.pivotConfig.rows.join(' → ') + 
-                              '\nColumns: ' + this.pivotConfig.columns.join(' → ') + 
-                              '\nValues: ' + this.pivotConfig.values.join(', ');
-                              
-            var filterSummary = '';
-            var activeFilters = Object.keys(this.columnFilters).filter(function(col) {
-                return self.columnFilters[col] && self.columnFilters[col].length > 0;
-            });
-            if (activeFilters.length > 0) {
-                filterSummary = '\nActive Filters: ' + activeFilters.join(', ');
-            }
-            
-            alert('Excel-style pivot configuration applied!\n\n' + configSummary + filterSummary);
-        };
-
-        ProfessionalPivotSystem.prototype.handleDragLeave = function(e) {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-                e.currentTarget.classList.remove('drag-over');
-            }
-        };
-
-        ProfessionalPivotSystem.prototype.createDimensionFilters = function() {
+        // Dimension table functions
+        EnhancedNColumnPivotSystem.prototype.createDimensionFilters = function() {
             var self = this;
             var filterGrid = document.getElementById('dimensionFilterGrid');
             if (filterGrid) {
@@ -1360,7 +1392,7 @@ body {
             }
         };
 
-        ProfessionalPivotSystem.prototype.applyFiltersAndPagination = function() {
+        EnhancedNColumnPivotSystem.prototype.applyFiltersAndPagination = function() {
             var self = this;
             this.filteredData = this.dimensionData.data.filter(function(row) {
                 if (self.dimensionSearchTerm) {
@@ -1404,7 +1436,7 @@ body {
             this.renderDimensionTable();
         };
 
-        ProfessionalPivotSystem.prototype.updatePaginationControls = function() {
+        EnhancedNColumnPivotSystem.prototype.updatePaginationControls = function() {
             var startRecord = (this.currentPage - 1) * this.pageSize + 1;
             var endRecord = Math.min(this.currentPage * this.pageSize, this.totalRecords);
             
@@ -1437,7 +1469,7 @@ body {
             if (lastBtn) lastBtn.disabled = this.currentPage === this.totalPages || this.totalPages === 0;
         };
 
-        ProfessionalPivotSystem.prototype.goToPage = function(action) {
+        EnhancedNColumnPivotSystem.prototype.goToPage = function(action) {
             switch (action) {
                 case 'first':
                     this.currentPage = 1;
@@ -1458,13 +1490,13 @@ body {
             this.applyFiltersAndPagination();
         };
 
-        ProfessionalPivotSystem.prototype.changePageSize = function(newSize) {
+        EnhancedNColumnPivotSystem.prototype.changePageSize = function(newSize) {
             this.pageSize = parseInt(newSize);
             this.currentPage = 1;
             this.applyFiltersAndPagination();
         };
 
-        ProfessionalPivotSystem.prototype.renderDimensionTable = function() {
+        EnhancedNColumnPivotSystem.prototype.renderDimensionTable = function() {
             var self = this;
             if (!this.dimensionData.columns || !this.filteredData) return;
 
@@ -1503,7 +1535,7 @@ body {
                 html += '<tr class="pivot-container ' + (isExpanded ? 'show' : '') + '" id="pivot-' + originalIndex + '">' +
                         '<td colspan="' + self.dimensionData.columns.length + '" class="pivot-cell-container">' +
                             '<div class="pivot-header">' +
-                                '<div class="pivot-info" id="pivot-info-' + originalIndex + '">Loading Excel-style pivot analysis...</div>' +
+                                '<div class="pivot-info" id="pivot-info-' + originalIndex + '">Loading N-column pivot analysis...</div>' +
                                 '<input type="text" class="pivot-search" placeholder="Search pivot..." id="pivot-search-' + originalIndex + '" onkeyup="pivotSystem.searchPivotTable(' + originalIndex + ', this.value)">' +
                             '</div>' +
                             '<div class="pivot-scroll-container" id="pivot-scroll-' + originalIndex + '">' +
@@ -1532,15 +1564,15 @@ body {
             });
         };
 
-        ProfessionalPivotSystem.prototype.getLoadingSpinner = function(rowIndex) {
+        EnhancedNColumnPivotSystem.prototype.getLoadingSpinner = function(rowIndex) {
             return '<div class="loading-container">' +
                    '<div class="spinner"></div>' +
-                   '<div class="loading-text">Generating Excel-style pivot table...</div>' +
+                   '<div class="loading-text">Generating N-column pivot table...</div>' +
                    '<div class="loading-timer" id="timer-' + rowIndex + '">0s</div>' +
                    '</div>';
         };
 
-        ProfessionalPivotSystem.prototype.sortDimensionTable = function(column) {
+        EnhancedNColumnPivotSystem.prototype.sortDimensionTable = function(column) {
             if (this.dimensionSort.column === column) {
                 this.dimensionSort.direction = this.dimensionSort.direction === 'asc' ? 'desc' : 'asc';
             } else {
@@ -1550,7 +1582,7 @@ body {
             this.applyFiltersAndPagination();
         };
 
-        ProfessionalPivotSystem.prototype.toggleDimensionRow = function(rowIndex) {
+        EnhancedNColumnPivotSystem.prototype.toggleDimensionRow = function(rowIndex) {
             if (this.expandedRows.has(rowIndex)) {
                 this.expandedRows.delete(rowIndex);
                 this.stopLoadingTimer(rowIndex);
@@ -1560,7 +1592,7 @@ body {
             this.renderDimensionTable();
         };
 
-        ProfessionalPivotSystem.prototype.generatePivotForRow = function(rowIndex) {
+        EnhancedNColumnPivotSystem.prototype.generatePivotForRow = function(rowIndex) {
             var self = this;
             
             // Check if pivot already exists and is valid
@@ -1572,7 +1604,7 @@ body {
                 JSON.stringify(this.pivotData[rowIndex].config_used.column_filters || {}) === JSON.stringify(this.columnFilters)) {
                 
                 // Configuration hasn't changed, just re-render existing data
-                this.renderEnhancedExcelPivotTable(rowIndex);
+                this.renderEnhancedNColumnPivotTable(rowIndex);
                 return;
             }
             
@@ -1600,7 +1632,7 @@ body {
             
             if (infoElement) {
                 var configText = 'Hierarchical Rows: ' + indexCols.join(' → ') + 
-                               ' | Columns: ' + columnsCols.join(' → ') + 
+                               ' | Columns (' + columnsCols.length + ' levels): ' + columnsCols.join(' → ') + 
                                ' | Values: ' + valueCols.join(', ');
                 
                 var activeFilters = Object.keys(this.columnFilters).filter(function(col) {
@@ -1609,35 +1641,25 @@ body {
                 
                 if (activeFilters.length > 0) {
                     configText += ' | Filters: ' + activeFilters.length + ' active';
-                    console.log('Active filters:', activeFilters.map(function(col) {
-                        var excluded = self.columnFilters[col].length;
-                        var total = self.availableColumnValues[col] ? self.availableColumnValues[col].length : 0;
-                        var included = total - excluded;
-                        return col + ': ' + included + '/' + total + ' included';
-                    }));
                 }
                 
-                infoElement.innerHTML = 'Excel-Style Analysis: ' + filterColumn + ' = ' + filterValue + ' | ' + configText;
+                infoElement.innerHTML = 'N-Column Analysis: ' + filterColumn + ' = ' + filterValue + ' | ' + configText;
             }
             
             // Prepare column filters for the request - send included values
             var requestColumnFilters = {};
             Object.keys(this.columnFilters).forEach(function(col) {
                 if (self.columnFilters[col] && self.columnFilters[col].length > 0) {
-                    // We have excluded values, so send included values
                     var allValues = self.availableColumnValues[col] || [];
                     var excludedValues = self.columnFilters[col];
                     var includedValues = allValues.filter(function(val) {
                         return excludedValues.indexOf(val) === -1;
                     });
-                    // Only send filter if some values are excluded
                     if (includedValues.length < allValues.length && includedValues.length > 0) {
                         requestColumnFilters[col] = includedValues;
                     }
                 }
             });
-            
-            console.log('Sending column filters:', requestColumnFilters);
             
             fetch('/api/pivot', {
                 method: 'POST',
@@ -1674,48 +1696,72 @@ body {
                 
                 self.pivotData[rowIndex] = data;
                 self.stopLoadingTimer(rowIndex);
-                self.renderEnhancedExcelPivotTable(rowIndex);
+                self.renderEnhancedNColumnPivotTable(rowIndex);
             })
             .catch(function(error) {
                 self.stopLoadingTimer(rowIndex);
                 console.error('Pivot generation error:', error);
-                contentElement.innerHTML = '<div class="error">Error generating Excel-style pivot: ' + error.message + 
+                contentElement.innerHTML = '<div class="error">Error generating N-column pivot: ' + error.message + 
                     '<br><small>Check browser console for details</small></div>';
             });
         };
 
-        ProfessionalPivotSystem.prototype.renderEnhancedExcelPivotTable = function(rowIndex) {
+        // Enhanced N-Column pivot table rendering
+        EnhancedNColumnPivotSystem.prototype.renderEnhancedNColumnPivotTable = function(rowIndex) {
             var self = this;
             var contentElement = document.getElementById('pivot-content-' + rowIndex);
             if (!contentElement || !this.pivotData[rowIndex]) return;
             
             var pivotResult = this.pivotData[rowIndex];
-            console.log('Rendering pivot for row', rowIndex, ':', pivotResult);
+            console.log('Rendering N-column pivot for row', rowIndex, ':', pivotResult);
             
             if (!this.expandedPivotRows[rowIndex]) {
                 this.expandedPivotRows[rowIndex] = new Set();
             }
             
-            // Build Excel-style table with proper headers and collapsible rows
-            var html = this.buildExcelStyleTable(pivotResult, rowIndex);
+            // Build enhanced N-column table
+            var html = this.buildEnhancedNColumnTable(pivotResult, rowIndex);
             contentElement.innerHTML = html;
         };
 
-        ProfessionalPivotSystem.prototype.buildExcelStyleTable = function(pivotResult, rowIndex) {
+        // NEW: Enhanced N-Column table builder that supports unlimited column levels
+        EnhancedNColumnPivotSystem.prototype.buildEnhancedNColumnTable = function(pivotResult, rowIndex) {
             var headers = pivotResult.column_headers;
             var rowHierarchy = pivotResult.row_hierarchy;
             var pivotData = pivotResult.pivot_data;
+            var columnDimensions = pivotResult.column_dimensions || [];
             
-            console.log('Building table with:', {
-                headers: headers,
-                rowHierarchy: Object.keys(rowHierarchy),
-                pivotDataKeys: Object.keys(pivotData)
+            console.log('='.repeat(60));
+            console.log('DEBUGGING RECEIVED DATA FROM BACKEND');
+            console.log('='.repeat(60));
+            console.log('Building N-column table with:', {
+                columnDimensions: columnDimensions,
+                columnCount: columnDimensions.length,
+                backendColumnCount: headers.structure ? headers.structure.column_count : 'undefined'
             });
+            
+            console.log('Headers structure received:');
+            console.log('- Main groups:', headers.structure ? headers.structure.main_groups : 'none');
+            console.log('- Data keys:', headers.data_keys ? headers.data_keys.slice(0, 20) : 'none');
+            
+            if (headers.data_keys) {
+                console.log('\nBACKEND DATA KEYS ORDER:');
+                headers.data_keys.forEach(function(key, idx) {
+                    var marker = key.includes('Total') ? ' ← SUBTOTAL' : '';
+                    console.log('  ' + (idx+1) + '. ' + key + marker);
+                });
+            }
+            
+            // Verify we're getting the right column count
+            var actualColumnCount = columnDimensions.length;
+            console.log('Frontend detected column count:', actualColumnCount);
+            console.log('Backend reported column count:', headers.structure ? headers.structure.column_count : 'not provided');
+            console.log('='.repeat(60));
             
             var html = '<table class="excel-pivot-table">';
             
-            // Build headers
-            html += this.buildExcelHeaders(headers);
+            // Build enhanced headers that support N levels - pass the actual column dimensions
+            html += this.buildEnhancedNColumnHeaders(headers, columnDimensions);
             
             // Build data rows
             html += '<tbody>';
@@ -1731,76 +1777,1136 @@ body {
             return html;
         };
 
-        ProfessionalPivotSystem.prototype.buildExcelHeaders = function(headers) {
+        // NEW: Enhanced header builder that supports unlimited column levels
+        EnhancedNColumnPivotSystem.prototype.buildEnhancedNColumnHeaders = function(headers, columnDimensions) {
+            var self = this;
             var html = '<thead>';
             
-            if (headers.structure && headers.structure.has_subtotals) {
-                // Multi-level headers with subtotals
-                html += '<tr class="header-row-1">';
-                html += '<th class="header-cell row-header" rowspan="2">Items</th>';
-                
-                // Main group headers
-                headers.structure.main_groups.forEach(function(mainGroup) {
-                    var subGroups = headers.structure.sub_groups[mainGroup] || [];
-                    var colspan = subGroups.length > 1 ? subGroups.length + 1 : subGroups.length || 1;
-                    html += '<th class="header-cell main-group" colspan="' + colspan + '">' + mainGroup + '</th>';
-                });
-                
-                // Single Grand Total header
-                html += '<th class="header-cell grand-total" rowspan="2">Grand Total</th>';
-                html += '</tr>';
-                
-                // Sub-group headers
-                html += '<tr class="header-row-2">';
-                headers.structure.main_groups.forEach(function(mainGroup) {
-                    var subGroups = headers.structure.sub_groups[mainGroup] || [];
-                    if (subGroups.length > 0) {
-                        subGroups.forEach(function(subGroup) {
-                            html += '<th class="header-cell sub-group">' + subGroup + '</th>';
-                        });
-                        if (subGroups.length > 1) {
-                            html += '<th class="header-cell sub-group">Total</th>';
-                        }
-                    } else {
-                        html += '<th class="header-cell sub-group">Total</th>';
-                    }
-                });
-                html += '</tr>';
-            } else {
-                // Simple single-level headers
-                html += '<tr class="header-row-1">';
-                html += '<th class="header-cell row-header">Items</th>';
-                
-                if (headers.structure && headers.structure.main_groups) {
-                    headers.structure.main_groups.forEach(function(group) {
-                        html += '<th class="header-cell">' + group + '</th>';
-                    });
-                } else if (headers.data_keys) {
-                    // Fallback: use data keys directly as headers
-                    headers.data_keys.forEach(function(key) {
-                        if (key !== 'Grand_Total') {
-                            // Clean up the key for display
-                            var displayKey = key.replace(/_/g, ' ');
-                            html += '<th class="header-cell">' + displayKey + '</th>';
-                        }
-                    });
-                }
-                
-                // Grand Total header
-                html += '<th class="header-cell grand-total">Grand Total</th>';
-                html += '</tr>';
+            console.log('Building enhanced headers with structure:', headers.structure);
+            console.log('Column dimensions received:', columnDimensions);
+            
+            if (!headers.structure) {
+                return this.buildSimpleHeaders(headers);
+            }
+            
+            // Get the actual column count from the backend data
+            var columnCount = columnDimensions ? columnDimensions.length : 
+                             (headers.structure.column_count || 2);
+            
+            console.log('Detected column count from backend:', columnCount);
+            
+            if (columnCount === 1) {
+                html += this.buildSingleLevelHeaders(headers);
+            } else if (columnCount === 2) {
+                html += this.buildTwoLevelHeaders(headers);
+            } else if (columnCount >= 3) {
+                // Use the enhanced multi-level logic
+                html += this.buildAdvancedMultiLevelHeaders(headers, columnDimensions, columnCount);
             }
             
             html += '</thead>';
             return html;
         };
 
-        ProfessionalPivotSystem.prototype.buildHierarchicalRows = function(hierarchy, pivotData, headers, tableIndex, level) {
+        // NEW: Advanced multi-level header builder for 3+ dimensions
+        EnhancedNColumnPivotSystem.prototype.buildAdvancedMultiLevelHeaders = function(headers, columnDimensions, columnCount) {
+            var self = this;
+            var html = '';
+            
+            console.log('Building advanced multi-level headers for', columnCount, 'levels');
+            console.log('Available hierarchy from backend:', headers.structure.hierarchy);
+            
+            // Build hierarchical structure from the backend hierarchy data
+            var hierarchyStructure = this.buildHierarchyStructure(headers.structure.hierarchy, columnCount);
+            console.log('Built hierarchy structure:', hierarchyStructure);
+            
+            // Build each header level
+            for (var level = 0; level < columnCount; level++) {
+                html += '<tr class="header-row level-' + level + '">';
+                
+                // Row header cell (spans all levels) - only on first row
+                if (level === 0) {
+                    html += '<th class="header-cell row-header" rowspan="' + columnCount + '">Items' +
+                            '<span class="column-level-indicator">L' + columnCount + '</span></th>';
+                }
+                
+                // Build headers for this level based on hierarchy
+                if (level === 0) {
+                    // Level 0: Main groups
+                    Object.keys(hierarchyStructure).forEach(function(mainGroup) {
+                        var groupData = hierarchyStructure[mainGroup];
+                        var colspan = self.calculateHierarchicalColspan(groupData, columnCount);
+                        
+                        html += '<th class="header-cell header-level-' + level + ' main-group" colspan="' + colspan + '" rowspan="1">' +
+                                mainGroup + 
+                                '<span class="column-level-indicator">L1</span>' +
+                                '</th>';
+                    });
+                } else {
+                    // Level 1+ : Sub groups organized under parents
+                    self.buildHierarchicalSubHeaders(hierarchyStructure, level, columnCount).forEach(function(headerInfo) {
+                        var cellClass = 'header-cell header-level-' + level + ' sub-group';
+                        
+                        html += '<th class="' + cellClass + '" colspan="' + headerInfo.colspan + '" rowspan="' + headerInfo.rowspan + '">' +
+                                headerInfo.label + 
+                                '<span class="column-level-indicator">L' + (level + 1) + '</span>' +
+                                '</th>';
+                    });
+                }
+                
+                // Grand Total header (spans all levels) - only on first row
+                if (level === 0) {
+                    html += '<th class="header-cell grand-total" rowspan="' + columnCount + '">Grand Total</th>';
+                }
+                
+                html += '</tr>';
+            }
+            
+            return html;
+        };
+
+        // Build hierarchical structure from backend hierarchy data
+        EnhancedNColumnPivotSystem.prototype.buildHierarchyStructure = function(backendHierarchy, columnCount) {
+            var structure = {};
+            
+            // Process each path in the backend hierarchy
+            Object.keys(backendHierarchy).forEach(function(pathKey) {
+                var path = pathKey.split('|');
+                
+                // Only process complete paths of the expected length
+                if (path.length === columnCount) {
+                    var current = structure;
+                    
+                    // Build nested structure
+                    for (var i = 0; i < path.length; i++) {
+                        var segment = path[i];
+                        if (segment === '' || segment === 'Grand Total') continue;
+                        
+                        if (i === 0) {
+                            // Main group level
+                            if (!current[segment]) {
+                                current[segment] = {
+                                    children: {},
+                                    leafCount: 0
+                                };
+                            }
+                            current = current[segment].children;
+                        } else if (i === path.length - 1) {
+                            // Leaf level - count the leaf
+                            var parentKey = path.slice(0, -1).join('|');
+                            this.incrementLeafCount(structure, path.slice(0, -1));
+                        } else {
+                            // Intermediate level
+                            if (!current[segment]) {
+                                current[segment] = {
+                                    children: {},
+                                    leafCount: 0
+                                };
+                            }
+                            current = current[segment].children;
+                        }
+                    }
+                }
+            }.bind(this));
+            
+            return structure;
+        };
+
+        // Helper to increment leaf count up the hierarchy
+        EnhancedNColumnPivotSystem.prototype.incrementLeafCount = function(structure, path) {
+            var current = structure;
+            
+            for (var i = 0; i < path.length; i++) {
+                var segment = path[i];
+                if (current[segment]) {
+                    current[segment].leafCount++;
+                    current = current[segment].children;
+                }
+            }
+        };
+
+        // Calculate colspan based on hierarchical structure
+        EnhancedNColumnPivotSystem.prototype.calculateHierarchicalColspan = function(groupData, columnCount) {
+            if (groupData.leafCount > 0) {
+                return groupData.leafCount;
+            }
+            
+            // Fallback: count children recursively
+            var count = 0;
+            function countLeaves(node) {
+                if (Object.keys(node.children).length === 0) {
+                    return 1;
+                }
+                var sum = 0;
+                Object.keys(node.children).forEach(function(key) {
+                    sum += countLeaves(node.children[key]);
+                });
+                return sum;
+            }
+            
+            return Math.max(1, countLeaves(groupData));
+        };
+
+        // Build sub-headers that properly align under their parent groups with subtotals
+        EnhancedNColumnPivotSystem.prototype.buildHierarchicalSubHeaders = function(hierarchyStructure, level, columnCount) {
+            var headers = [];
+            
+            console.log('Building sub-headers for level', level, 'with structure:', Object.keys(hierarchyStructure));
+            
+            // For each main group, build sub-headers at the specified level WITH subtotals
+            Object.keys(hierarchyStructure).sort().forEach(function(mainGroup) {
+                var groupData = hierarchyStructure[mainGroup];
+                var subHeaders = [];
+                
+                // Extract sub-headers for this main group only
+                this.extractSubHeadersForGroup(groupData.children, level - 1, columnCount - 1, subHeaders, mainGroup);
+                
+                // Add the sub-headers for this group
+                headers = headers.concat(subHeaders);
+                
+                // Add subtotal for this main group if it has multiple sub-items and we're not at the last level
+                if (level < columnCount - 1 && this.shouldAddSubtotal(groupData, level)) {
+                    headers.push({
+                        label: mainGroup + ' Total',
+                        colspan: 1,
+                        rowspan: columnCount - level,
+                        isSubtotal: true
+                    });
+                }
+                
+            }.bind(this));
+            
+            console.log('Generated', headers.length, 'sub-headers for level', level);
+            return headers;
+        };
+
+        // Extract sub-headers for a specific main group
+        EnhancedNColumnPivotSystem.prototype.extractSubHeadersForGroup = function(currentLevel, targetLevel, maxLevel, headers, parentGroup) {
+            if (targetLevel === 0) {
+                // We're at the target level for this specific group
+                var sortedKeys = Object.keys(currentLevel).sort();
+                var groupSubHeaders = [];
+                
+                sortedKeys.forEach(function(key) {
+                    var nodeData = currentLevel[key];
+                    
+                    if (targetLevel === maxLevel - 1) {
+                        // Last level - each item gets colspan 1
+                        groupSubHeaders.push({
+                            label: key,
+                            colspan: 1,
+                            rowspan: 1,
+                            parentGroup: parentGroup
+                        });
+                    } else {
+                        // Intermediate level - calculate colspan based on children
+                        var colspan = this.countTotalLeaves(nodeData);
+                        groupSubHeaders.push({
+                            label: key,
+                            colspan: colspan,
+                            rowspan: 1,
+                            parentGroup: parentGroup
+                        });
+                    }
+                }.bind(this));
+                
+                // Add all sub-headers for this group
+                headers.push(...groupSubHeaders);
+                
+            } else {
+                // Go deeper - process children in the same order as parents
+                var sortedKeys = Object.keys(currentLevel).sort();
+                sortedKeys.forEach(function(key) {
+                    var nodeData = currentLevel[key];
+                    this.extractSubHeadersForGroup(nodeData.children, targetLevel - 1, maxLevel, headers, parentGroup);
+                }.bind(this));
+            }
+        };
+
+        // Check if we should add a subtotal for this group
+        EnhancedNColumnPivotSystem.prototype.shouldAddSubtotal = function(groupData, level) {
+            // Add subtotal if this group has multiple distinct sub-paths
+            var uniqueSubPaths = new Set();
+            
+            groupData.leafPaths.forEach(function(path) {
+                var pathParts = path.split('|');
+                if (pathParts.length > level) {
+                    // Get the sub-path up to the next level
+                    var subPath = pathParts.slice(0, level + 1).join('|');
+                    uniqueSubPaths.add(subPath);
+                }
+            });
+            
+            return uniqueSubPaths.size > 1; // Only add subtotal if multiple sub-groups
+        };
+
+        // NEW: Advanced multi-level header builder that properly integrates sub-totals
+        EnhancedNColumnPivotSystem.prototype.buildAdvancedMultiLevelHeaders = function(headers, columnDimensions, columnCount) {
+            var self = this;
+            var html = '';
+            
+            console.log('Building advanced multi-level headers for', columnCount, 'levels');
+            console.log('Available hierarchy from backend:', Object.keys(headers.structure.hierarchy || {}).slice(0, 10));
+            
+            // Build hierarchical structure from the backend hierarchy data
+            var hierarchyStructure = this.buildHierarchyStructure(headers.structure.hierarchy, columnCount);
+            console.log('Built hierarchy structure:', Object.keys(hierarchyStructure));
+            
+            // Build a complete column layout that properly integrates subtotals
+            var columnLayout = this.buildCompleteColumnLayout(hierarchyStructure, columnCount);
+            console.log('Column layout:', columnLayout);
+            
+            // Build each header level using the integrated layout
+            for (var level = 0; level < columnCount; level++) {
+                html += '<tr class="header-row level-' + level + '">';
+                
+                // Row header cell (spans all levels) - only on first row
+                if (level === 0) {
+                    html += '<th class="header-cell row-header" rowspan="' + columnCount + '">Items' +
+                            '<span class="column-level-indicator">L' + columnCount + '</span></th>';
+                }
+                
+                // Build headers for this level using the integrated layout
+                columnLayout.levels[level].forEach(function(headerInfo) {
+                    var cellClass = 'header-cell header-level-' + level;
+                    
+                    if (level === 0) {
+                        cellClass += ' main-group';
+                    } else if (headerInfo.isSubtotal) {
+                        cellClass += ' subtotal';
+                    } else {
+                        cellClass += ' sub-group';
+                    }
+                    
+                    var colspan = headerInfo.colspan || 1;
+                    var rowspan = headerInfo.rowspan || 1;
+                    
+                    html += '<th class="' + cellClass + '" colspan="' + colspan + '" rowspan="' + rowspan + '">' +
+                            headerInfo.label;
+                    
+                    if (!headerInfo.isSubtotal) {
+                        html += '<span class="column-level-indicator">L' + (level + 1) + '</span>';
+                    }
+                    
+                    html += '</th>';
+                });
+                
+                // Grand Total header (spans all levels) - only on first row
+                if (level === 0) {
+                    html += '<th class="header-cell grand-total" rowspan="' + columnCount + '">Grand Total</th>';
+                }
+                
+                html += '</tr>';
+            }
+            
+            return html;
+        };
+
+// Fix the buildCompleteColumnLayout function to match backend data key order exactly
+EnhancedNColumnPivotSystem.prototype.buildCompleteColumnLayout = function(hierarchyStructure, columnCount) {
+    var layout = {
+        levels: {}
+    };
+    
+    // Initialize levels
+    for (var i = 0; i < columnCount; i++) {
+        layout.levels[i] = [];
+    }
+    
+    console.log('Building complete column layout for', Object.keys(hierarchyStructure).length, 'main groups');
+    
+    // For each main group, build its complete column structure INCLUDING IMMEDIATE subtotals
+    Object.keys(hierarchyStructure).sort().forEach(function(mainGroup) {
+        var groupData = hierarchyStructure[mainGroup];
+        
+        console.log('Processing main group:', mainGroup, 'with', groupData.leafPaths ? groupData.leafPaths.length : 'unknown', 'leaf paths');
+        
+        // Count actual leaf columns for this group
+        var actualLeafCount = this.countActualLeaves(groupData);
+        console.log('Building structure for group:', mainGroup);
+        
+        // Determine if this group should have a subtotal
+        var shouldHaveSubtotal = actualLeafCount > 1;
+        var totalColumns = actualLeafCount + (shouldHaveSubtotal ? 1 : 0);
+        console.log('Group total columns:', actualLeafCount, 'base +', (shouldHaveSubtotal ? 1 : 0), 'subtotal =', totalColumns);
+        
+        // Level 0: Main group header
+        layout.levels[0].push({
+            label: mainGroup,
+            colspan: totalColumns,
+            rowspan: 1,
+            isMainGroup: true
+        });
+        
+        // Build sub-levels with IMMEDIATE subtotal integration
+        this.buildSubLevelsWithImmediateSubtotals(groupData, 1, columnCount, layout, mainGroup, shouldHaveSubtotal);
+        
+        console.log('Added', layout.levels[0].length > 0 ? 1 : 0, 'headers to level 0 for group', mainGroup);
+        
+    }.bind(this));
+    
+    // Log the final layout for debugging
+    for (var level = 0; level < columnCount; level++) {
+        var headers = layout.levels[level].map(function(h) { 
+            return h.label + '(' + h.colspan + ')'; 
+        });
+        console.log('Level', level, 'final headers:', headers);
+    }
+    
+    return layout;
+};
+EnhancedNColumnPivotSystem.prototype.buildSubLevelsWithImmediateSubtotals = function(groupData, level, maxLevels, layout, parentGroup, shouldHaveSubtotal) {
+    if (level >= maxLevels) return;
+    
+    // Get the actual structure from leafPaths
+    var levelStructure = this.buildLevelStructureFromPaths(groupData.leafPaths, level, maxLevels);
+    
+    console.log('Building sub-level', level, 'for parent:', parentGroup, 'with items:', Object.keys(levelStructure));
+    
+    // Add headers for this level in the correct order
+    Object.keys(levelStructure).sort().forEach(function(key) {
+        var itemData = levelStructure[key];
+        var isLastLevel = level === maxLevels - 1;
+        
+        if (isLastLevel) {
+            // Last level - each item gets colspan 1
+            layout.levels[level].push({
+                label: key,
+                colspan: 1,
+                rowspan: 1,
+                isLeaf: true
+            });
+        } else {
+            // Intermediate level - calculate colspan
+            var colspan = this.countPathsForItem(groupData.leafPaths, key, level);
+            layout.levels[level].push({
+                label: key,
+                colspan: colspan,
+                rowspan: 1
+            });
+        }
+    }.bind(this));
+    
+    // Add subtotal IMMEDIATELY after this group's headers at level 1
+    if (level === 1 && shouldHaveSubtotal) {
+        console.log('Added subtotal:', parentGroup + ' Total', 'at level', level);
+        layout.levels[level].push({
+            label: parentGroup + ' Total',
+            colspan: 1,
+            rowspan: maxLevels - level,
+            isSubtotal: true
+        });
+    }
+    
+    // Continue to build deeper levels
+    if (level < maxLevels - 1) {
+        this.buildSubLevelsRecursively(groupData, level + 1, maxLevels, layout);
+    }
+};
+// Helper: Build level structure from leaf paths
+EnhancedNColumnPivotSystem.prototype.buildLevelStructureFromPaths = function(leafPaths, targetLevel, maxLevels) {
+    var structure = {};
+    
+    if (!leafPaths) return structure;
+    
+    leafPaths.forEach(function(path) {
+        var parts = path.split('|');
+        if (parts.length >= maxLevels && targetLevel < parts.length) {
+            var key = parts[targetLevel];
+            if (!structure[key]) {
+                structure[key] = {
+                    count: 0,
+                    paths: []
+                };
+            }
+            structure[key].count++;
+            structure[key].paths.push(path);
+        }
+    });
+    
+    return structure;
+};
+// Helper: Count paths for a specific item at a level
+EnhancedNColumnPivotSystem.prototype.countPathsForItem = function(leafPaths, itemKey, level) {
+    var count = 0;
+    
+    if (!leafPaths) return 1;
+    
+    leafPaths.forEach(function(path) {
+        var parts = path.split('|');
+        if (parts.length > level && parts[level] === itemKey) {
+            count++;
+        }
+    });
+    
+    return Math.max(1, count);
+};
+
+// Helper: Count actual leaves in group data
+EnhancedNColumnPivotSystem.prototype.countActualLeaves = function(groupData) {
+    if (groupData.leafPaths) {
+        return groupData.leafPaths.length;
+    }
+    
+    // Fallback: count recursively
+    return this.countTotalLeaves(groupData);
+};
+// Updated buildSubLevelsRecursively to handle proper structure
+EnhancedNColumnPivotSystem.prototype.buildSubLevelsRecursively = function(groupData, level, maxLevels, layout) {
+    if (level >= maxLevels || !groupData.leafPaths) return;
+    
+    var levelStructure = this.buildLevelStructureFromPaths(groupData.leafPaths, level, maxLevels);
+    
+    Object.keys(levelStructure).sort().forEach(function(key) {
+        var itemData = levelStructure[key];
+        var isLastLevel = level === maxLevels - 1;
+        
+        if (isLastLevel) {
+            // Last level - add all leaf items
+            for (var i = 0; i < itemData.count; i++) {
+                layout.levels[level].push({
+                    label: key,
+                    colspan: 1,
+                    rowspan: 1,
+                    isLeaf: true
+                });
+            }
+        } else {
+            // Intermediate level
+            layout.levels[level].push({
+                label: key,
+                colspan: itemData.count,
+                rowspan: 1
+            });
+        }
+    }.bind(this));
+};
+        // Build complete column structure for a single group including subtotals
+        EnhancedNColumnPivotSystem.prototype.buildGroupColumnStructure = function(mainGroup, groupData, columnCount) {
+            var structure = {
+                levels: {}
+            };
+            
+            // Initialize levels for this group
+            for (var i = 0; i < columnCount; i++) {
+                structure.levels[i] = [];
+            }
+            
+            console.log('Building structure for group:', mainGroup);
+            
+            // Level 0: Main group header
+            var totalColumns = this.calculateTotalColumnsForGroup(groupData, columnCount);
+            structure.levels[0].push({
+                label: mainGroup,
+                colspan: totalColumns,
+                rowspan: 1,
+                isMainGroup: true
+            });
+            
+            // Build sub-levels recursively with integrated subtotals
+            this.buildSubLevelsWithSubtotals(groupData.children, 1, columnCount, structure, mainGroup);
+            
+            return structure;
+        };
+
+        // Build sub-levels with subtotals properly integrated and aligned
+        EnhancedNColumnPivotSystem.prototype.buildSubLevelsWithSubtotals = function(currentLevel, level, maxLevels, structure, parentPath) {
+            if (level >= maxLevels) return;
+            
+            var sortedKeys = Object.keys(currentLevel).sort();
+            var hasMultipleItems = sortedKeys.length > 1;
+            
+            console.log('Building sub-level', level, 'for parent:', parentPath, 'with items:', sortedKeys);
+            
+            // Add headers for each item at this level
+            sortedKeys.forEach(function(key) {
+                var nodeData = currentLevel[key];
+                var isLeafLevel = level === maxLevels - 1;
+                
+                if (isLeafLevel) {
+                    // Leaf level - add individual columns
+                    structure.levels[level].push({
+                        label: key,
+                        colspan: 1,
+                        rowspan: 1, // Changed from maxLevels - level to 1
+                        isLeaf: true,
+                        parentPath: parentPath
+                    });
+                } else {
+                    // Intermediate level - calculate colspan and continue recursively
+                    var subColspan = this.countTotalLeaves(nodeData);
+                    structure.levels[level].push({
+                        label: key,
+                        colspan: subColspan,
+                        rowspan: 1,
+                        parentPath: parentPath
+                    });
+                    
+                    // Recursively build deeper levels
+                    this.buildSubLevelsWithSubtotals(nodeData.children, level + 1, maxLevels, structure, parentPath + ' → ' + key);
+                }
+            }.bind(this));
+            
+            // Add subtotal for this level if there are multiple items
+            if (hasMultipleItems && level === 1) { // Only add subtotals at level 1 for now
+                structure.levels[level].push({
+                    label: this.getSubtotalLabel(parentPath, level),
+                    colspan: 1,
+                    rowspan: maxLevels - level, // Subtotal spans remaining levels
+                    isSubtotal: true,
+                    parentPath: parentPath
+                });
+                
+                console.log('Added subtotal:', this.getSubtotalLabel(parentPath, level), 'at level', level);
+            }
+        };
+
+        // Enhanced subtotal label generation
+        EnhancedNColumnPivotSystem.prototype.getSubtotalLabel = function(parentPath, level) {
+            var pathParts = parentPath.split(' → ');
+            var mainGroup = pathParts[0]; // Get the main group name
+            return mainGroup + ' Total';
+        };
+
+        // Fix the complete column layout building to ensure proper alignment
+        EnhancedNColumnPivotSystem.prototype.buildCompleteColumnLayout = function(hierarchyStructure, columnCount) {
+            var layout = {
+                levels: {}
+            };
+            
+            // Initialize levels
+            for (var i = 0; i < columnCount; i++) {
+                layout.levels[i] = [];
+            }
+            
+            console.log('Building complete column layout for', Object.keys(hierarchyStructure).length, 'main groups');
+            
+            // For each main group, build its complete column structure including subtotals
+            Object.keys(hierarchyStructure).sort().forEach(function(mainGroup) {
+                var groupData = hierarchyStructure[mainGroup];
+                
+                console.log('Processing main group:', mainGroup, 'with', groupData.leafPaths.length, 'leaf paths');
+                
+                // Build the complete structure for this group across all levels
+                var groupColumnStructure = this.buildGroupColumnStructure(mainGroup, groupData, columnCount);
+                
+                // Add this group's structure to each level
+                for (var level = 0; level < columnCount; level++) {
+                    var levelHeaders = groupColumnStructure.levels[level] || [];
+                    layout.levels[level] = layout.levels[level].concat(levelHeaders);
+                    console.log('Added', levelHeaders.length, 'headers to level', level, 'for group', mainGroup);
+                }
+                
+            }.bind(this));
+            
+            // Log the final layout for debugging
+            for (var level = 0; level < columnCount; level++) {
+                console.log('Level', level, 'final headers:', layout.levels[level].map(function(h) { return h.label + '(' + h.colspan + ')'; }));
+            }
+            
+            return layout;
+        };
+
+        // Ensure main group header calculation is correct
+        EnhancedNColumnPivotSystem.prototype.calculateTotalColumnsForGroup = function(groupData, columnCount) {
+            var baseColumns = this.countTotalLeaves(groupData);
+            
+            // Add 1 subtotal column if this group has multiple sub-branches at level 1
+            var hasSubtotal = this.groupHasSubtotal(groupData);
+            var subtotalColumns = hasSubtotal ? 1 : 0;
+            
+            var total = baseColumns + subtotalColumns;
+            console.log('Group total columns:', baseColumns, 'base +', subtotalColumns, 'subtotal =', total);
+            return total;
+        };
+
+        // Check if group should have a subtotal
+        EnhancedNColumnPivotSystem.prototype.groupHasSubtotal = function(groupData) {
+            // Check if there are multiple distinct second-level paths
+            var secondLevelPaths = new Set();
+            groupData.leafPaths.forEach(function(path) {
+                var parts = path.split('|');
+                if (parts.length >= 2) {
+                    secondLevelPaths.add(parts[1]);
+                }
+            });
+            return secondLevelPaths.size > 1;
+        };
+
+        // Build organized main groups that account for subtotals
+        EnhancedNColumnPivotSystem.prototype.buildOrganizedMainGroups = function(hierarchyStructure, columnCount) {
+            var mainGroups = [];
+            
+            Object.keys(hierarchyStructure).sort().forEach(function(mainGroup) {
+                var groupData = hierarchyStructure[mainGroup];
+                
+                // Calculate colspan including potential subtotal
+                var baseColspan = this.calculateHierarchicalColspan(groupData, columnCount);
+                var hasSubtotal = this.shouldAddSubtotal(groupData, 1); // Check if level 1 will have subtotal
+                var totalColspan = hasSubtotal ? baseColspan + 1 : baseColspan;
+                
+                mainGroups.push({
+                    label: mainGroup,
+                    colspan: totalColspan,
+                    rowspan: 1,
+                    isGroupHeader: true
+                });
+            }.bind(this));
+            
+            return mainGroups;
+        };
+
+        // Extract sub-headers at a specific level with proper parent-child organization
+        EnhancedNColumnPivotSystem.prototype.extractSubHeadersAtLevel = function(currentLevel, targetLevel, maxLevel, headers) {
+            if (targetLevel === 0) {
+                // We're at the target level, add headers in order
+                var sortedKeys = Object.keys(currentLevel).sort();
+                sortedKeys.forEach(function(key) {
+                    var nodeData = currentLevel[key];
+                    var hasChildren = Object.keys(nodeData.children).length > 0;
+                    
+                    if (targetLevel === maxLevel - 1) {
+                        // Last level - each item gets colspan 1
+                        headers.push({
+                            label: key,
+                            colspan: 1,
+                            rowspan: 1
+                        });
+                    } else {
+                        // Intermediate level - calculate colspan based on children
+                        var colspan = hasChildren ? this.countTotalLeaves(nodeData) : 1;
+                        headers.push({
+                            label: key,
+                            colspan: colspan,
+                            rowspan: 1
+                        });
+                    }
+                }.bind(this));
+            } else {
+                // Go deeper - process children in the same order as parents
+                var sortedKeys = Object.keys(currentLevel).sort();
+                sortedKeys.forEach(function(key) {
+                    var nodeData = currentLevel[key];
+                    this.extractSubHeadersAtLevel(nodeData.children, targetLevel - 1, maxLevel, headers);
+                }.bind(this));
+            }
+        };
+
+        // Count total leaves under a node
+        EnhancedNColumnPivotSystem.prototype.countTotalLeaves = function(node) {
+            if (Object.keys(node.children).length === 0) {
+                return 1;
+            }
+            
+            var count = 0;
+            Object.keys(node.children).forEach(function(key) {
+                count += this.countTotalLeaves(node.children[key]);
+            }.bind(this));
+            
+            return count;
+        };
+
+// Also fix the hierarchy structure building to include leafPaths
+EnhancedNColumnPivotSystem.prototype.buildHierarchyStructure = function(backendHierarchy, columnCount) {
+    var structure = {};
+    var pathCounts = {};
+    
+    console.log('Building hierarchy from backend data:', Object.keys(backendHierarchy).slice(0, 10));
+    
+    // First pass: collect all unique paths and count occurrences
+    Object.keys(backendHierarchy).forEach(function(pathKey) {
+        var path = pathKey.split('|');
+        
+        // Only process complete paths
+        if (path.length === columnCount && !path.includes('') && !path.includes('Grand Total')) {
+            pathCounts[pathKey] = true;
+        }
+    });
+    
+    console.log('Valid paths found:', Object.keys(pathCounts).length);
+    
+    // Second pass: build hierarchical structure WITH leafPaths tracking
+    Object.keys(pathCounts).forEach(function(pathKey) {
+        var path = pathKey.split('|');
+        var current = structure;
+        
+        // Build the hierarchy level by level
+        for (var i = 0; i < path.length; i++) {
+            var segment = path[i];
+            
+            if (i === 0) {
+                // Main group level
+                if (!current[segment]) {
+                    current[segment] = {
+                        children: {},
+                        leafPaths: []
+                    };
+                }
+                // Add this complete path to track leaves
+                current[segment].leafPaths.push(pathKey);
+                current = current[segment].children;
+            } else {
+                // Sub-level
+                if (!current[segment]) {
+                    current[segment] = {
+                        children: {},
+                        leafPaths: []
+                    };
+                }
+                // Track which complete paths pass through this node
+                current[segment].leafPaths.push(pathKey);
+                
+                if (i < path.length - 1) {
+                    current = current[segment].children;
+                }
+            }
+        }
+    });
+    
+    console.log('Built structure with main groups:', Object.keys(structure));
+    return structure;
+};
+
+        // Enhanced colspan calculation using leaf paths
+        EnhancedNColumnPivotSystem.prototype.calculateHierarchicalColspan = function(groupData, columnCount) {
+            // Count unique leaf paths
+            var uniquePaths = new Set(groupData.leafPaths);
+            return Math.max(1, uniquePaths.size);
+        };
+
+        // NEW: Single-level header builder
+        EnhancedNColumnPivotSystem.prototype.buildSingleLevelHeaders = function(headers) {
+            var html = '<tr class="header-row level-0">';
+            html += '<th class="header-cell row-header" rowspan="1">Items</th>';
+            
+            if (headers.structure.main_groups) {
+                headers.structure.main_groups.forEach(function(group) {
+                    html += '<th class="header-cell level-0">' + group + '</th>';
+                });
+            }
+            
+            html += '<th class="header-cell grand-total" rowspan="1">Grand Total</th>';
+            html += '</tr>';
+            
+            return html;
+        };
+
+        // NEW: Multi-level header builder for 3+ column dimensions
+        EnhancedNColumnPivotSystem.prototype.buildMultiLevelHeaders = function(headers, columnDimensions, columnCount) {
+            var self = this;
+            var html = '';
+            
+            console.log('Building multi-level headers for', columnCount, 'levels');
+            
+            // Analyze the header structure to determine levels
+            var levelStructure = this.analyzeHeaderLevels(headers, columnDimensions);
+            
+            console.log('Level structure:', levelStructure);
+            
+            // Build each header level
+            for (var level = 0; level < levelStructure.maxLevels; level++) {
+                html += '<tr class="header-row level-' + level + '">';
+                
+                // Row header cell (spans all levels)
+                if (level === 0) {
+                    html += '<th class="header-cell row-header" rowspan="' + levelStructure.maxLevels + '">Items' +
+                            '<span class="column-level-indicator">L' + levelStructure.maxLevels + '</span></th>';
+                }
+                
+                // Column headers for this level
+                if (levelStructure.levels[level]) {
+                    levelStructure.levels[level].forEach(function(headerInfo) {
+                        var cellClass = 'header-cell header-level-' + level;
+                        if (headerInfo.isGroupHeader) {
+                            cellClass += ' main-group';
+                        } else {
+                            cellClass += ' sub-group';
+                        }
+                        
+                        var colspan = headerInfo.colspan || 1;
+                        var rowspan = headerInfo.rowspan || 1;
+                        
+                        html += '<th class="' + cellClass + '" colspan="' + colspan + '" rowspan="' + rowspan + '">' +
+                                headerInfo.label + 
+                                (level < columnCount - 1 ? '<span class="column-level-indicator">L' + (level + 1) + '</span>' : '') +
+                                '</th>';
+                    });
+                }
+                
+                // Grand Total header (spans all levels)
+                if (level === 0) {
+                    html += '<th class="header-cell grand-total" rowspan="' + levelStructure.maxLevels + '">Grand Total</th>';
+                }
+                
+                html += '</tr>';
+            }
+            
+            return html;
+        };
+
+        // NEW: Analyze header structure to determine level layout
+        EnhancedNColumnPivotSystem.prototype.analyzeHeaderLevels = function(headers, columnDimensions) {
+            var columnCount = columnDimensions ? columnDimensions.length : 2;
+            var structure = {
+                maxLevels: columnCount,
+                levels: {}
+            };
+            
+            console.log('Analyzing headers for', structure.maxLevels, 'levels with column dimensions:', columnDimensions);
+            console.log('Headers structure received:', headers.structure);
+            
+            // Initialize levels
+            for (var i = 0; i < structure.maxLevels; i++) {
+                structure.levels[i] = [];
+            }
+            
+            if (headers.structure && headers.structure.levels) {
+                // Use the backend's level structure directly
+                console.log('Using backend levels structure:', headers.structure.levels);
+                
+                // Build headers for each level based on backend data
+                if (columnCount >= 3) {
+                    // For 3+ columns, use the actual level data from backend
+                    
+                    // Level 0: Main groups (first dimension)
+                    var mainGroups = headers.structure.levels[0] || [];
+                    mainGroups.forEach(function(mainGroup) {
+                        if (mainGroup === 'Grand Total') return;
+                        
+                        // Calculate colspan based on how many sub-items this main group has
+                        var subItems = this.getSubItemsCount(mainGroup, headers.structure, columnCount);
+                        
+                        structure.levels[0].push({
+                            label: mainGroup,
+                            colspan: subItems,
+                            rowspan: 1,
+                            isGroupHeader: true
+                        });
+                    }.bind(this));
+                    
+                    // Level 1: Second dimension
+                    var level1Groups = headers.structure.levels[1] || [];
+                    level1Groups.forEach(function(level1Group) {
+                        if (level1Group === '' || level1Group === 'Grand Total') return;
+                        
+                        // Calculate colspan for level 1 items
+                        var subItems = this.getLevel1SubItemsCount(level1Group, headers.structure, columnCount);
+                        
+                        structure.levels[1].push({
+                            label: level1Group,
+                            colspan: subItems,
+                            rowspan: columnCount > 2 ? 1 : 1,
+                            isGroupHeader: true
+                        });
+                    }.bind(this));
+                    
+                    // Level 2+: Additional dimensions
+                    for (var level = 2; level < columnCount; level++) {
+                        var levelGroups = headers.structure.levels[level] || [];
+                        levelGroups.forEach(function(levelGroup) {
+                            if (levelGroup === '' || levelGroup === 'Grand Total') return;
+                            
+                            structure.levels[level].push({
+                                label: levelGroup,
+                                colspan: 1,
+                                rowspan: 1,
+                                isGroupHeader: false
+                            });
+                        });
+                    }
+                    
+                } else {
+                    // For 1-2 columns, use existing logic
+                    this.buildTraditionalLevels(headers, structure);
+                }
+                
+            } else if (headers.data_keys) {
+                // Fallback: build from data keys
+                console.log('Fallback: building from data keys');
+                this.buildFromDataKeys(headers, structure, columnCount);
+            }
+            
+            console.log('Final analyzed structure:', structure);
+            return structure;
+        };
+
+        // Helper function to count sub-items for main groups
+        EnhancedNColumnPivotSystem.prototype.getSubItemsCount = function(mainGroup, structure, columnCount) {
+            var count = 0;
+            
+            // Count items in hierarchy that start with this main group
+            if (structure.hierarchy) {
+                Object.keys(structure.hierarchy).forEach(function(pathKey) {
+                    var path = pathKey.split('|');
+                    if (path[0] === mainGroup) {
+                        // This is a leaf item for this main group
+                        if (path.length === columnCount) {
+                            count++;
+                        }
+                    }
+                });
+            }
+            
+            return Math.max(1, count);
+        };
+
+        // Helper function to count sub-items for level 1 groups  
+        EnhancedNColumnPivotSystem.prototype.getLevel1SubItemsCount = function(level1Group, structure, columnCount) {
+            var count = 0;
+            
+            if (structure.hierarchy) {
+                Object.keys(structure.hierarchy).forEach(function(pathKey) {
+                    var path = pathKey.split('|');
+                    if (path.length > 1 && path[1] === level1Group) {
+                        // Count final level items under this level1 group
+                        if (path.length === columnCount) {
+                            count++;
+                        }
+                    }
+                });
+            }
+            
+            return Math.max(1, count);
+        };
+
+        // Helper function for traditional 1-2 column levels
+        EnhancedNColumnPivotSystem.prototype.buildTraditionalLevels = function(headers, structure) {
+            if (headers.structure.main_groups) {
+                headers.structure.main_groups.forEach(function(mainGroup) {
+                    var subGroups = headers.structure.sub_groups[mainGroup] || [];
+                    var colspan = Math.max(1, subGroups.length);
+                    
+                    structure.levels[0].push({
+                        label: mainGroup,
+                        colspan: colspan,
+                        rowspan: structure.maxLevels > 1 ? 1 : 1,
+                        isGroupHeader: true
+                    });
+                    
+                    if (structure.maxLevels > 1 && subGroups.length > 0) {
+                        subGroups.forEach(function(subGroup) {
+                            structure.levels[1].push({
+                                label: subGroup,
+                                colspan: 1,
+                                rowspan: 1,
+                                isGroupHeader: false
+                            });
+                        });
+                    }
+                });
+            }
+        };
+
+        // Helper function to build from data keys
+        EnhancedNColumnPivotSystem.prototype.buildFromDataKeys = function(headers, structure, columnCount) {
+            var processedKeys = new Set();
+            
+            headers.data_keys.forEach(function(key) {
+                if (key === 'Grand_Total') return;
+                
+                // Split the key by underscores to get the hierarchy
+                var parts = key.split('_');
+                
+                for (var level = 0; level < Math.min(columnCount, parts.length); level++) {
+                    var levelKey = parts[level];
+                    var uniqueKey = level + '_' + levelKey;
+                    
+                    if (!processedKeys.has(uniqueKey)) {
+                        processedKeys.add(uniqueKey);
+                        
+                        structure.levels[level].push({
+                            label: levelKey.replace(/_/g, ' '),
+                            colspan: 1,
+                            rowspan: level === columnCount - 1 ? 1 : 1,
+                            isGroupHeader: level === 0
+                        });
+                    }
+                }
+            });
+        };
+
+        // Two-level header builder (existing logic)
+        EnhancedNColumnPivotSystem.prototype.buildTwoLevelHeaders = function(headers) {
+            var html = '';
+            
+            if (headers.structure && headers.structure.has_subtotals) {
+                html += '<tr class="header-row level-0">';
+                html += '<th class="header-cell row-header" rowspan="2">Items</th>';
+                
+                headers.structure.main_groups.forEach(function(mainGroup) {
+                    var subGroups = headers.structure.sub_groups[mainGroup] || [];
+                    var colspan = subGroups.length > 1 ? subGroups.length + 1 : subGroups.length || 1;
+                    html += '<th class="header-cell main-group level-0" colspan="' + colspan + '">' + mainGroup + '</th>';
+                });
+                
+                html += '<th class="header-cell grand-total" rowspan="2">Grand Total</th>';
+                html += '</tr>';
+                
+                html += '<tr class="header-row level-1">';
+                headers.structure.main_groups.forEach(function(mainGroup) {
+                    var subGroups = headers.structure.sub_groups[mainGroup] || [];
+                    if (subGroups.length > 0) {
+                        subGroups.forEach(function(subGroup) {
+                            html += '<th class="header-cell sub-group level-1">' + subGroup + '</th>';
+                        });
+                        if (subGroups.length > 1) {
+                            html += '<th class="header-cell sub-group level-1">Total</th>';
+                        }
+                    } else {
+                        html += '<th class="header-cell sub-group level-1">Total</th>';
+                    }
+                });
+                html += '</tr>';
+            } else {
+                html += '<tr class="header-row level-0">';
+                html += '<th class="header-cell row-header">Items</th>';
+                
+                if (headers.structure && headers.structure.main_groups) {
+                    headers.structure.main_groups.forEach(function(group) {
+                        html += '<th class="header-cell level-0">' + group + '</th>';
+                    });
+                } else if (headers.data_keys) {
+                    headers.data_keys.forEach(function(key) {
+                        if (key !== 'Grand_Total') {
+                            var displayKey = key.replace(/_/g, ' ');
+                            html += '<th class="header-cell level-0">' + displayKey + '</th>';
+                        }
+                    });
+                }
+                
+                html += '<th class="header-cell grand-total">Grand Total</th>';
+                html += '</tr>';
+            }
+            
+            return html;
+        };
+
+        // Simple header builder (fallback)
+        EnhancedNColumnPivotSystem.prototype.buildSimpleHeaders = function(headers) {
+            var html = '<tr class="header-row level-0">';
+            html += '<th class="header-cell row-header">Items</th>';
+            
+            if (headers.data_keys) {
+                headers.data_keys.forEach(function(key) {
+                    if (key !== 'Grand_Total') {
+                        var displayKey = key.replace(/_/g, ' ');
+                        html += '<th class="header-cell level-0">' + displayKey + '</th>';
+                    }
+                });
+            }
+            
+            html += '<th class="header-cell grand-total">Grand Total</th>';
+            html += '</tr>';
+            
+            return html;
+        };
+
+        // Hierarchical rows builder
+        EnhancedNColumnPivotSystem.prototype.buildHierarchicalRows = function(hierarchy, pivotData, headers, tableIndex, level) {
             var self = this;
             var html = '';
             
             Object.keys(hierarchy).forEach(function(itemName) {
-                // Skip Grand Total from hierarchy rendering
                 if (itemName === 'Grand Total') {
                     return;
                 }
@@ -1810,10 +2916,8 @@ body {
                 var rowKey = self.buildRowKey(item.path);
                 var isExpanded = self.expandedPivotRows[tableIndex].has(rowKey);
                 
-                // Main row
                 html += '<tr class="data-row level-' + level + '">';
                 
-                // Row header with expand/collapse button
                 var indentPadding = level * 20 + 10;
                 html += '<td class="row-header-cell ' + (hasChildren ? 'expandable' : '') + '" style="padding-left: ' + indentPadding + 'px;">';
                 
@@ -1826,15 +2930,12 @@ body {
                 html += '<span title="' + itemName + '">' + itemName + '</span>';
                 html += '</td>';
                 
-                // Data cells - ensure we have the correct data
                 var rowData = pivotData[self.formatRowKeyForData(item.path)];
-                console.log('Row data for', itemName, ':', rowData);
-                console.log('Data keys:', headers.data_keys);
                 
                 if (rowData && headers.data_keys) {
                     headers.data_keys.forEach(function(dataKey) {
                         if (dataKey === 'Grand_Total') {
-                            return; // Skip Grand_Total in the loop, handle separately
+                            return;
                         }
                         
                         var value = rowData[dataKey];
@@ -1854,15 +2955,12 @@ body {
                         html += '</td>';
                     });
                     
-                    // Add Grand Total cell
                     var grandTotalValue = rowData['Grand_Total'];
                     html += '<td class="data-cell grand-total" title="' + self.formatCellValue(grandTotalValue) + '">';
                     html += self.formatCellValue(grandTotalValue);
                     html += '</td>';
                 } else {
-                    console.warn('No row data found for', itemName, 'Expected key:', self.formatRowKeyForData(item.path));
-                    // Create empty cells for missing data
-                    var expectedColumns = headers.data_keys ? headers.data_keys.length : 5; // fallback
+                    var expectedColumns = headers.data_keys ? headers.data_keys.length : 5;
                     for (var i = 0; i < expectedColumns; i++) {
                         html += '<td class="data-cell null">-</td>';
                     }
@@ -1870,7 +2968,6 @@ body {
                 
                 html += '</tr>';
                 
-                // Child rows (if expanded)
                 if (hasChildren && isExpanded) {
                     html += self.buildHierarchicalRows(item.children, pivotData, headers, tableIndex, level + 1);
                 }
@@ -1879,7 +2976,7 @@ body {
             return html;
         };
 
-        ProfessionalPivotSystem.prototype.buildGrandTotalRow = function(grandTotalData, headers) {
+        EnhancedNColumnPivotSystem.prototype.buildGrandTotalRow = function(grandTotalData, headers) {
             var self = this;
             var html = '<tr class="grand-total-row">';
             
@@ -1888,7 +2985,7 @@ body {
             if (headers.data_keys) {
                 headers.data_keys.forEach(function(dataKey) {
                     if (dataKey === 'Grand_Total') {
-                        return; // Skip, handle separately
+                        return;
                     }
                     
                     var value = grandTotalData[dataKey] || 0;
@@ -1897,7 +2994,6 @@ body {
                     html += '</td>';
                 });
                 
-                // Add Grand Total cell
                 var grandTotalValue = grandTotalData['Grand_Total'] || 0;
                 html += '<td class="data-cell" title="' + self.formatCellValue(grandTotalValue) + '">';
                 html += self.formatCellValue(grandTotalValue);
@@ -1908,23 +3004,24 @@ body {
             return html;
         };
 
-        ProfessionalPivotSystem.prototype.buildRowKey = function(path) {
+        // Helper functions
+        EnhancedNColumnPivotSystem.prototype.buildRowKey = function(path) {
             return path ? path.join('|') : '';
         };
 
-        ProfessionalPivotSystem.prototype.formatRowKeyForData = function(path) {
+        EnhancedNColumnPivotSystem.prototype.formatRowKeyForData = function(path) {
             if (!path || path.length === 0) return '';
             return "('" + path.join("', '") + "')";
         };
 
-        ProfessionalPivotSystem.prototype.formatCellValue = function(value) {
+        EnhancedNColumnPivotSystem.prototype.formatCellValue = function(value) {
             if (value === null || value === undefined || value === 0) {
                 return '-';
             }
             return Number(value).toLocaleString();
         };
 
-        ProfessionalPivotSystem.prototype.togglePivotRow = function(tableIndex, rowKey) {
+        EnhancedNColumnPivotSystem.prototype.togglePivotRow = function(tableIndex, rowKey) {
             if (!this.expandedPivotRows[tableIndex]) {
                 this.expandedPivotRows[tableIndex] = new Set();
             }
@@ -1935,10 +3032,10 @@ body {
                 this.expandedPivotRows[tableIndex].add(rowKey);
             }
             
-            this.renderEnhancedExcelPivotTable(tableIndex);
+            this.renderEnhancedNColumnPivotTable(tableIndex);
         };
 
-        ProfessionalPivotSystem.prototype.startLoadingTimer = function(rowIndex) {
+        EnhancedNColumnPivotSystem.prototype.startLoadingTimer = function(rowIndex) {
             var self = this;
             var seconds = 0;
             this.loadingTimers[rowIndex] = setInterval(function() {
@@ -1950,19 +3047,19 @@ body {
             }, 1000);
         };
 
-        ProfessionalPivotSystem.prototype.stopLoadingTimer = function(rowIndex) {
+        EnhancedNColumnPivotSystem.prototype.stopLoadingTimer = function(rowIndex) {
             if (this.loadingTimers[rowIndex]) {
                 clearInterval(this.loadingTimers[rowIndex]);
                 delete this.loadingTimers[rowIndex];
             }
         };
 
-        ProfessionalPivotSystem.prototype.searchPivotTable = function(rowIndex, searchTerm) {
+        EnhancedNColumnPivotSystem.prototype.searchPivotTable = function(rowIndex, searchTerm) {
             this.pivotSearchTerms[rowIndex] = searchTerm.toLowerCase();
-            this.renderEnhancedExcelPivotTable(rowIndex);
+            this.renderEnhancedNColumnPivotTable(rowIndex);
         };
 
-        ProfessionalPivotSystem.prototype.toggleDimensionFilters = function() {
+        EnhancedNColumnPivotSystem.prototype.toggleDimensionFilters = function() {
             var filters = document.getElementById('dimensionFilters');
             if (filters && filters.classList.contains('show')) {
                 filters.classList.remove('show');
@@ -1971,7 +3068,7 @@ body {
             }
         };
 
-        ProfessionalPivotSystem.prototype.clearDimensionFilters = function() {
+        EnhancedNColumnPivotSystem.prototype.clearDimensionFilters = function() {
             var self = this;
             this.dimensionFilters = {};
             this.dimensionSearchTerm = '';
@@ -1985,49 +3082,20 @@ body {
             this.applyFiltersAndPagination();
         };
 
-        ProfessionalPivotSystem.prototype.clearColumnFilter = function(column) {
-            if (this.columnFilters[column]) {
-                delete this.columnFilters[column];
-                this.renderFilterGrid();
-                this.applyColumnFilters();
-            }
-        };
-
-        ProfessionalPivotSystem.prototype.debugFilters = function() {
-            console.log('=== FILTER DEBUG INFO ===');
-            console.log('Column filters state:', this.columnFilters);
-            console.log('Available column values:', this.availableColumnValues);
-            
-            Object.keys(this.columnFilters).forEach(function(col) {
-                var excluded = this.columnFilters[col] || [];
-                var available = this.availableColumnValues[col] || [];
-                var included = available.filter(function(val) {
-                    return excluded.indexOf(val) === -1;
-                });
-                console.log(col + ':', {
-                    total: available.length,
-                    excluded: excluded.length,
-                    included: included.length,
-                    excludedValues: excluded,
-                    includedValues: included
-                });
-            }.bind(this));
-        };
-
-        // Initialize the system and make it globally accessible
+        // Initialize the enhanced system
         var pivotSystem;
         
-        // Wait for DOM to be ready
         document.addEventListener('DOMContentLoaded', function() {
-            pivotSystem = new ProfessionalPivotSystem();
-            
-            // Make it globally accessible for onclick handlers
+            pivotSystem = new EnhancedNColumnPivotSystem();
             window.pivotSystem = pivotSystem;
             
-            // Add debug function to window for console access
-            window.debugPivotFilters = function() {
-                pivotSystem.debugFilters();
-            };
+            console.log('🚀 Enhanced N-Column Pivot System Initialized!');
+            console.log('✨ Features:');
+            console.log('   - Unlimited column dimensions support');
+            console.log('   - Dynamic header level generation');
+            console.log('   - Intelligent column grouping');
+            console.log('   - Enhanced visual indicators');
+            console.log('   - Robust Excel-style filtering');
         });
     </script>
 </body>
